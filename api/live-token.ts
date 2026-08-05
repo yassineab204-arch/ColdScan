@@ -1,10 +1,10 @@
 import { GoogleGenAI, Modality } from '@google/genai';
-import { ApiRequest, ApiResponse, fail, readBody } from './_lib/http';
+import { ApiRequest, ApiResponse, fail, readBody } from './_lib/http.js';
 import {
   DEFAULT_VOICE,
   LIVE_MODEL,
   buildLiveSystemInstruction,
-} from './_lib/livePersona';
+} from './_lib/livePersona.js';
 
 /**
  * Mints a short-lived, single-use ephemeral token for the Gemini Live API.

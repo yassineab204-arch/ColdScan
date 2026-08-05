@@ -77,8 +77,19 @@ export class GeminiLiveClient {
       });
 
       if (!tokenRes.ok) {
-        const detail = await tokenRes.json().catch(() => ({} as any));
-        throw new Error(detail?.error || `Could not start live session (${tokenRes.status})`);
+        // Read as text first: if the function itself crashed, the body is an
+        // HTML/plain error page rather than JSON, and swallowing that hides the
+        // real cause behind a bare status code.
+        const raw = await tokenRes.text().catch(() => '');
+        let detail = '';
+        try {
+          detail = JSON.parse(raw)?.error || '';
+        } catch {
+          detail = raw.slice(0, 200);
+        }
+        throw new Error(
+          `Could not start live session (${tokenRes.status})${detail ? `: ${detail}` : ''}`
+        );
       }
 
       const { token, model } = await tokenRes.json();

@@ -1,6 +1,6 @@
 import { Modality } from '@google/genai';
-import { TTS_MODEL, TTS_TONE_PROMPTS, getGenAI } from './_lib/genai';
-import { ApiRequest, ApiResponse, fail, methodGuard, readBody } from './_lib/http';
+import { TTS_MODEL, TTS_TONE_PROMPTS, getGenAI } from './_lib/genai.js';
+import { ApiRequest, ApiResponse, fail, methodGuard, readBody } from './_lib/http.js';
 
 /** Wraps raw PCM (as returned by Gemini TTS) in a RIFF/WAV header for <audio>. */
 function pcmToWav(pcmBase64: string, sampleRate = 24000): string {

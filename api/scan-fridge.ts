@@ -1,6 +1,6 @@
 import { Type } from '@google/genai';
-import { TEXT_MODEL, getGenAI, languageMandate } from './_lib/genai';
-import { ApiRequest, ApiResponse, fail, methodGuard, readBody } from './_lib/http';
+import { TEXT_MODEL, getGenAI, languageMandate } from './_lib/genai.js';
+import { ApiRequest, ApiResponse, fail, methodGuard, readBody } from './_lib/http.js';
 
 export default async function handler(req: ApiRequest, res: ApiResponse) {
   if (!methodGuard(req, res, 'POST')) return;

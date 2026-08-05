@@ -12,15 +12,15 @@ import 'dotenv/config';
 import express from 'express';
 import { createServer as createViteServer } from 'vite';
 
-import aiChat from './api/ai-chat';
-import generateRecipes from './api/generate-recipes';
-import generateShoppingList from './api/generate-shopping-list';
-import health from './api/health';
-import liveToken from './api/live-token';
-import recipeVoiceBot from './api/recipe-voice-bot';
-import scanFridge from './api/scan-fridge';
-import tts from './api/tts';
-import type { ApiHandler } from './api/_lib/http';
+import aiChat from './api/ai-chat.js';
+import generateRecipes from './api/generate-recipes.js';
+import generateShoppingList from './api/generate-shopping-list.js';
+import health from './api/health.js';
+import liveToken from './api/live-token.js';
+import recipeVoiceBot from './api/recipe-voice-bot.js';
+import scanFridge from './api/scan-fridge.js';
+import tts from './api/tts.js';
+import type { ApiHandler } from './api/_lib/http.js';
 
 const PORT = Number(process.env.PORT) || 3000;
 const app = express();
