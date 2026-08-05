@@ -66,6 +66,6 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     return res.status(200).json({ token: token.name, model: LIVE_MODEL });
   } catch (error: any) {
     console.error('Error in /api/live-token:', error);
-    return fail(res, error, 'Failed to mint Gemini Live session token');
+    return fail(res, error, 'Failed to start the voice session');
   }
 }

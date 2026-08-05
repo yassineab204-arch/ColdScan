@@ -101,7 +101,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         </div>
       </div>
 
-      {/* Live AI Scanner & Voice Banner (Dark & High Contrast) */}
+      {/* Live Scanner & Voice Banner (Dark & High Contrast) */}
       <div className="bg-slate-900 text-white rounded-3xl p-5 relative overflow-hidden flex flex-col border-4 border-emerald-500/30 shadow-lg">
         <div className="flex justify-between items-center mb-3">
           <span className="bg-emerald-500 text-white text-[10px] font-black px-2.5 py-1 rounded tracking-widest uppercase">
@@ -132,7 +132,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
         <div className="my-3 bg-white/10 backdrop-blur-md rounded-2xl p-3.5 border border-white/20">
           <p className="text-white/60 text-[10px] font-black uppercase tracking-widest mb-1">
-            {t('geminiThinking', currentLang)}
+            {t('assistantThinking', currentLang)}
           </p>
           <p className="text-white text-xs font-serif italic font-medium leading-relaxed">
             "{expiringItems.length > 0 

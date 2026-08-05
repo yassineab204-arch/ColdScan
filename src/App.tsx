@@ -90,7 +90,7 @@ export default function App() {
     setInventory((prev) => prev.filter((i) => i.id !== id));
   };
 
-  // Recipe AI Generation
+  // Recipe generation
   const handleRefreshRecipes = async () => {
     setIsGeneratingRecipes(true);
     try {
@@ -109,7 +109,7 @@ export default function App() {
         setRecipes(data.recipes);
       }
     } catch (err) {
-      console.error('Error generating AI recipes:', err);
+      console.error('Error generating recipes:', err);
     } finally {
       setIsGeneratingRecipes(false);
     }
@@ -168,7 +168,7 @@ export default function App() {
     setShoppingList((prev) => prev.filter((i) => i.id !== id));
   };
 
-  // AI Shopping List Generation
+  // Shopping list generation
   const handleGenerateSmartList = async () => {
     setIsGeneratingList(true);
     try {
@@ -331,7 +331,7 @@ export default function App() {
         )}
       </main>
 
-      {/* Gemini Live Voice Overlay Modal */}
+      {/* Live Voice Overlay Modal */}
       <LiveVoiceModal
         isOpen={isLiveVoiceOpen}
         onClose={() => setIsLiveVoiceOpen(false)}

@@ -174,7 +174,7 @@ export const CookingWizardModal: React.FC<CookingWizardModalProps> = ({
           setTimerLabel(`${mins} Min Timer`);
           setVoiceFeedback(`⏱️ Set ${mins} min timer`);
         } else if (onOpenVoiceBot) {
-          // Open the full AI Sous-Chef voice bot
+          // Open the full Sous-Chef voice bot
           onOpenVoiceBot(recipe);
         }
       };
@@ -275,10 +275,10 @@ export const CookingWizardModal: React.FC<CookingWizardModalProps> = ({
                   onOpenVoiceBot(recipe);
                 }}
                 className="px-2.5 py-1.5 rounded-xl bg-emerald-600/30 border border-emerald-500/40 text-emerald-300 hover:bg-emerald-600/50 text-[11px] font-black uppercase tracking-wider flex items-center gap-1 transition-all"
-                title="Open AI Sous-Chef Voice Guide"
+                title="Open Sous-Chef Voice Guide"
               >
                 <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
-                <span className="hidden sm:inline">AI Voice Guide</span>
+                <span className="hidden sm:inline">Voice Guide</span>
               </button>
             )}
 

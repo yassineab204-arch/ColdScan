@@ -136,7 +136,7 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             onClick={onOpenLiveVoice}
             className="flex items-center gap-1 bg-emerald-50 px-2 py-1.5 rounded-xl border border-emerald-200 hover:bg-emerald-100 hover:scale-105 active:scale-95 transition-all duration-200 shadow-xs"
-            title="Talk to Gemini Live Assistant"
+            title="Talk to Voice Assistant"
           >
             <Mic className="w-3.5 h-3.5 text-emerald-700" />
             <span className="text-[10px] font-black text-emerald-700 uppercase tracking-wider hidden sm:inline">

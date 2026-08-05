@@ -161,7 +161,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
           {settings.voiceOutputEnabled && (
             <div className="space-y-1">
-              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Gemini Voice Persona</span>
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Voice Persona</span>
               <select
                 value={settings.voiceName}
                 onChange={(e) => onUpdateSettings({ voiceName: e.target.value })}

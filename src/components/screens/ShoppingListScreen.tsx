@@ -195,7 +195,7 @@ export const ShoppingListScreen: React.FC<ShoppingListScreenProps> = ({
           <div>
             <h3 className="font-bold text-slate-800 text-sm">Shopping List is Empty</h3>
             <p className="text-xs text-slate-500 mt-0.5">
-              Add missing ingredients from recipes or use AI Auto-Fill to restock essentials.
+              Add missing ingredients from recipes or use Auto-Fill to restock essentials.
             </p>
           </div>
           <button

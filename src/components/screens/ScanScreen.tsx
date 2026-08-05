@@ -105,7 +105,7 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({
     setErrorMsg(null);
   };
 
-  // Run AI Scan on Image
+  // Run scan on image
   const runAIScan = async () => {
     if (!selectedImage) return;
 

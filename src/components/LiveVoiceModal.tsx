@@ -50,7 +50,7 @@ const NATURAL_MULTILINGUAL_PROMPTS = [
 ];
 
 const INITIAL_TRILINGUAL_GREETING = 
-  'أهلاً بك الشاف ! أنا المساعد الصوتي ديالك كولد سكان بـ Gemini Live. تكلم معايا بحرية بالدارجة المغربية، بالفرنسية، ولا بالإنجليزية — أنا كنسمع ليك مباشرة ونجاوبك بنفس اللغة ! 🎙️✨';
+  'أهلاً بك الشاف ! أنا المساعد الصوتي ديالك كولد سكان. تكلم معايا بحرية بالدارجة المغربية، بالفرنسية، ولا بالإنجليزية — أنا كنسمع ليك مباشرة ونجاوبك بنفس اللغة ! 🎙️✨';
 
 export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
   isOpen,
@@ -76,7 +76,7 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
   const cameraStreamRef = useRef<MediaStream | null>(null);
   const cameraIntervalRef = useRef<any>(null);
 
-  // Gemini Live Client Reference
+  // Live voice client reference
   const liveClientRef = useRef<GeminiLiveClient | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
@@ -85,7 +85,7 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isModelSpeaking]);
 
-  // Connect to Gemini Live when modal opens
+  // Connect to the voice session when modal opens
   useEffect(() => {
     if (!isOpen) {
       disconnectLiveSession();
@@ -127,7 +127,7 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
       inventory: inventory || [],
       recipe: activeRecipe || null,
       onSessionReady: () => {
-        console.log('[LiveVoiceModal] Gemini Live Session is live and active');
+        console.log('[LiveVoiceModal] Voice session is live and active');
         setIsLiveConnected(true);
         setIsConnecting(false);
         setErrorMessage(null);
@@ -194,7 +194,7 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
         setModelAudioLevel(modelLvl);
       },
       onError: (err: string) => {
-        console.warn('[LiveVoiceModal] Gemini Live warning/error:', err);
+        console.warn('[LiveVoiceModal] Voice session warning/error:', err);
         setErrorMessage(err);
         setIsConnecting(false);
       },
@@ -246,7 +246,7 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
 
     setInputText('');
 
-    // Send text to Gemini Live session
+    // Send text to the voice session
     if (liveClientRef.current) {
       liveClientRef.current.sendText(query);
     }
@@ -273,7 +273,7 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
       }
       setIsCameraActive(true);
 
-      // Periodically capture and send frames to Gemini Live (1 frame every 1.5s)
+      // Periodically capture and send frames to the voice session (1 frame every 1.5s)
       const canvas = document.createElement('canvas');
       canvas.width = 320;
       canvas.height = 240;
@@ -333,7 +333,7 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="font-black text-sm uppercase tracking-wider text-white">
-                  Gemini Live AI
+                  Live Voice Assistant
                 </h2>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
                   <Activity className="w-2.5 h-2.5 animate-pulse text-emerald-400" />
@@ -395,7 +395,7 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
             />
             <div className="absolute top-2 left-2 px-2.5 py-1 rounded-lg bg-black/60 backdrop-blur-md border border-emerald-500/30 text-emerald-400 text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping"></span>
-              Live Camera Feed • Gemini Inspecting Fridge
+              Live Camera Feed • Inspecting Fridge
             </div>
           </div>
         )}
@@ -406,7 +406,7 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
             {isConnecting ? (
               <div className="flex items-center gap-2 text-xs font-bold text-amber-400">
                 <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                Connecting Gemini Live session...
+                Connecting voice session...
               </div>
             ) : isInterrupted ? (
               <div className="flex items-center gap-2 text-xs font-bold text-rose-400 animate-pulse">
@@ -503,7 +503,7 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
           {isConnecting && (
             <div className="flex items-center gap-2 text-slate-400 text-xs font-bold py-2 px-3 bg-slate-800/60 rounded-2xl border border-slate-700 w-fit">
               <RefreshCw className="w-3.5 h-3.5 animate-spin text-emerald-400" />
-              Initializing Gemini Live audio stream...
+              Initializing audio stream...
             </div>
           )}
 
@@ -559,7 +559,7 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
           </div>
 
           <div className="flex items-center justify-between text-[10px] text-slate-500 font-semibold px-1">
-            <span>✨ Gemini 3.1 Flash Live • 16kHz in / 24kHz out</span>
+            <span>✨ Live Voice • 16kHz in / 24kHz out</span>
             <span className="text-emerald-400 font-bold">Auto-detects Darija, French & English</span>
           </div>
         </div>

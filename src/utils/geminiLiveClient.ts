@@ -94,6 +94,9 @@ export class GeminiLiveClient {
 
       const { token, model } = await tokenRes.json();
       if (!token) throw new Error('Live session token missing from server response');
+      // The model name is supplied by the server rather than hardcoded here, so
+      // it never appears as a literal in the client bundle.
+      if (!model) throw new Error('Live session model missing from server response');
 
       // 2. Load the SDK lazily so it stays out of the initial bundle.
       const { GoogleGenAI, Modality } = await import('@google/genai');
@@ -105,13 +108,13 @@ export class GeminiLiveClient {
       });
 
       this.session = await ai.live.connect({
-        model: model || 'gemini-3.1-flash-live-preview',
+        model,
         // The real config (voice, persona, transcription) is locked into the
         // token server-side; anything sent here would be ignored.
         config: { responseModalities: [Modality.AUDIO] },
         callbacks: {
           onopen: async () => {
-            console.log('[GeminiLive] Session open, initializing mic & audio context');
+            console.log('[LiveVoice] Session open, initializing mic & audio context');
             this.isConnected = true;
 
             await this.startAudioPipeline();
@@ -133,16 +136,16 @@ export class GeminiLiveClient {
                 turnComplete: true,
               });
             } catch (e) {
-              console.warn('[GeminiLive] Greeting send failed:', e);
+              console.warn('[LiveVoice] Greeting send failed:', e);
             }
           },
           onmessage: (message: any) => this.handleServerMessage(message),
           onerror: (err: any) => {
-            console.error('[GeminiLive] Session error:', err);
+            console.error('[LiveVoice] Session error:', err);
             this.options.onError?.(err?.message || 'Live session error');
           },
           onclose: (event: any) => {
-            console.log('[GeminiLive] Session closed', event?.reason || '');
+            console.log('[LiveVoice] Session closed', event?.reason || '');
             this.isConnected = false;
             this.options.onClose?.();
             if (!this.isClosing) this.cleanup();
@@ -150,7 +153,7 @@ export class GeminiLiveClient {
         },
       });
     } catch (err: any) {
-      console.error('[GeminiLive] Connect error:', err);
+      console.error('[LiveVoice] Connect error:', err);
       this.options.onError?.(err?.message || 'Failed to connect to Live session');
       this.options.onClose?.();
     }
@@ -208,7 +211,7 @@ export class GeminiLiveClient {
       // Start level monitoring loop
       this.startLevelMonitoring();
     } catch (err: any) {
-      console.warn('[GeminiLive] Mic access error (will operate in text mode):', err);
+      console.warn('[LiveVoice] Mic access error (will operate in text mode):', err);
       this.options.onError?.(`Microphone: ${err?.message || 'Access denied'}`);
     }
   }
@@ -247,7 +250,7 @@ export class GeminiLiveClient {
     if (!this.outputAudioContext) return;
     try {
       if (this.outputAudioContext.state === 'suspended') {
-        this.outputAudioContext.resume().catch((e) => console.warn('[GeminiLive] AudioContext resume failed:', e));
+        this.outputAudioContext.resume().catch((e) => console.warn('[LiveVoice] AudioContext resume failed:', e));
       }
 
       const binaryString = atob(base64Pcm);
@@ -299,12 +302,12 @@ export class GeminiLiveClient {
 
       this.setIsModelSpeaking(true);
     } catch (e) {
-      console.error('[GeminiLive] Error decoding/playing 24kHz audio chunk:', e);
+      console.error('[LiveVoice] Error decoding/playing 24kHz audio chunk:', e);
     }
   }
 
   public handleInterruption() {
-    console.log('[GeminiLive] Interruption triggered, halting model audio playback');
+    console.log('[LiveVoice] Interruption triggered, halting model audio playback');
     // Stop all actively playing audio sources immediately
     for (const source of this.activeAudioSources) {
       try {
@@ -366,7 +369,7 @@ export class GeminiLiveClient {
     try {
       this.session.sendRealtimeInput(payload);
     } catch (e) {
-      console.warn('[GeminiLive] Failed to send realtime input:', e);
+      console.warn('[LiveVoice] Failed to send realtime input:', e);
     }
   }
 

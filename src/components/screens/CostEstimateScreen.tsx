@@ -132,11 +132,11 @@ export const CostEstimateScreen: React.FC<CostEstimateScreenProps> = ({
         )}
       </div>
 
-      {/* AI Money-Saving Tips */}
+      {/* Money-Saving Tips */}
       <div className="space-y-2.5">
         <h3 className="font-bold text-slate-800 text-sm flex items-center gap-1.5">
           <PiggyBank className="w-4 h-4 text-emerald-600" />
-          AI Grocery Money-Saving Hacks
+          Grocery Money-Saving Hacks
         </h3>
 
         <div className="space-y-2">

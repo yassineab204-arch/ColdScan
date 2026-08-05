@@ -40,7 +40,12 @@ export function readBody(req: ApiRequest): Record<string, any> {
   return body as Record<string, any>;
 }
 
+/**
+ * Returns a generic, vendor-neutral message to the browser while logging the
+ * real error server-side (visible in the Vercel function logs). Upstream errors
+ * embed the provider's name and endpoints, which must not surface in the UI.
+ */
 export function fail(res: ApiResponse, error: unknown, fallback: string) {
-  const message = (error as any)?.message || fallback;
-  return res.status(500).json({ error: message });
+  console.error('[api] request failed:', (error as any)?.message || error);
+  return res.status(500).json({ error: fallback });
 }

@@ -208,13 +208,13 @@ export const RecipeVoiceBotModal: React.FC<RecipeVoiceBotModalProps> = ({
           ? `Bonjour Chef ! Je suis votre Sous-Chef vocal pour la recette "${localizedName}". Je vais vous guider étape par étape. Dites "Étape suivante", "Minuteur", ou posez-moi n'importe quelle question !`
           : effectiveLang === 'ar-MA'
           ? `أهلاً بك الشاف ! أنا المساعد الصوتي ديالك للطياب لهاد الوصفة "${localizedName}". نقدر نوجهك خطوة بخطوة، نقولك شنو دير، ولا نحدد ليك الوقت. سولني بالصوت فاي وقت !`
-          : `Hello Chef! I'm your AI Sous-Chef Voice Guide for "${localizedName}". I'll guide you through every step hands-free. Say "Next step", "Set a timer", or ask any cooking question!`;
+          : `Hello Chef! I'm your Sous-Chef Voice Guide for "${localizedName}". I'll guide you through every step hands-free. Say "Next step", "Set a timer", or ask any cooking question!`;
       } else {
         welcome = effectiveLang === 'fr'
           ? "Bonjour Chef ! Je suis votre assistant culinaire vocal. Dites-moi ce que vous voulez cuisiner ou demandez-moi de vous guider à travers une recette !"
           : effectiveLang === 'ar-MA'
           ? "أهلاً بك الشاف ! أنا المساعد الصوتي للوصفات. قوليا شنو بغيتي تطيب ولا اختار شي وصفة ونعاونك فيها خطوة بخطوة !"
-          : "Hello Chef! I'm your AI Sous-Chef Voice Guide. Ask me what to cook from your fridge, or pick a recipe to be guided step-by-step hands-free!";
+          : "Hello Chef! I'm your Sous-Chef Voice Guide. Ask me what to cook from your fridge, or pick a recipe to be guided step-by-step hands-free!";
       }
 
       const welcomeId = `welcome-${Date.now()}`;
@@ -371,7 +371,7 @@ export const RecipeVoiceBotModal: React.FC<RecipeVoiceBotModalProps> = ({
     }
   };
 
-  // Send message to Gemini Sous-Chef Backend
+  // Send message to the Sous-Chef backend
   const handleSendMessage = async (queryText: string) => {
     if (!queryText.trim()) return;
 
@@ -420,7 +420,7 @@ export const RecipeVoiceBotModal: React.FC<RecipeVoiceBotModalProps> = ({
 
         let actionNote = '';
 
-        // Handle Action commands returned by AI
+        // Handle action commands returned by the assistant
         if (data.action?.type === 'NEXT_STEP') {
           if (activeRecipe) {
             const nextIdx = Math.min((activeRecipe.instructions?.length || 1) - 1, currentStepIndex + 1);
@@ -549,7 +549,7 @@ export const RecipeVoiceBotModal: React.FC<RecipeVoiceBotModalProps> = ({
             <div>
               <div className="flex items-center gap-1.5">
                 <h2 className="font-black text-sm uppercase tracking-wider text-white">
-                  AI Sous-Chef Voice
+                  Sous-Chef Voice
                 </h2>
                 <span className={`px-1.5 py-0.5 rounded-sm font-mono text-[9px] font-black uppercase tracking-wider border flex items-center gap-1 transition-all ${
                   isSpeaking 
@@ -586,7 +586,7 @@ export const RecipeVoiceBotModal: React.FC<RecipeVoiceBotModalProps> = ({
                   ? 'bg-emerald-950/60 border-emerald-700/50 text-emerald-400 hover:bg-emerald-900/80'
                   : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'
               }`}
-              title={audioEnabled ? 'Mute AI Voice' : 'Enable AI Voice'}
+              title={audioEnabled ? 'Mute Voice' : 'Enable Voice'}
             >
               {audioEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
             </button>
@@ -762,7 +762,7 @@ export const RecipeVoiceBotModal: React.FC<RecipeVoiceBotModalProps> = ({
                 >
                   <div className="flex items-center justify-between gap-3 text-[10px] opacity-75 font-mono">
                     <span className="font-bold uppercase tracking-wider flex items-center gap-1.5">
-                      {isUser ? 'You' : 'AI Sous-Chef'}
+                      {isUser ? 'You' : 'Sous-Chef'}
                       {isThisMsgSpeaking && (
                         <span className="text-[9px] text-emerald-700 font-black px-1.5 py-0.5 bg-emerald-100/90 rounded border border-emerald-300 flex items-center gap-1">
                           <Radio className="w-2 h-2 text-emerald-600 animate-spin" />
@@ -845,7 +845,7 @@ export const RecipeVoiceBotModal: React.FC<RecipeVoiceBotModalProps> = ({
             <div className="flex items-center gap-2">
               <span className={`w-2.5 h-2.5 rounded-full ${isListening ? 'bg-amber-400 animate-ping' : 'bg-emerald-400 animate-pulse'}`} />
               <span className="text-xs font-black uppercase tracking-wider text-slate-200">
-                {isListening ? 'Listening to your voice...' : 'AI Sous-Chef is dictating...'}
+                {isListening ? 'Listening to your voice...' : 'Sous-Chef is dictating...'}
               </span>
             </div>
 
@@ -892,7 +892,7 @@ export const RecipeVoiceBotModal: React.FC<RecipeVoiceBotModalProps> = ({
                   ? 'bg-amber-500 text-slate-950 animate-pulse scale-105 shadow-amber-500/30'
                   : 'bg-emerald-600 text-white hover:bg-emerald-500 hover:scale-105 active:scale-95 shadow-emerald-600/30'
               }`}
-              title={isListening ? 'Stop Listening' : 'Speak to AI Sous-Chef'}
+              title={isListening ? 'Stop Listening' : 'Speak to Sous-Chef'}
             >
               {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
             </button>
