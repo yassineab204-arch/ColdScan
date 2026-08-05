@@ -16,6 +16,7 @@ import {
 import { FoodItem, ScanResult, AppSettings, LanguageType } from '../../types';
 import { SAMPLE_FRIDGE_PHOTOS } from '../../data/mockData';
 import { t } from '../../utils/i18n';
+import { downscaleImage } from '../../utils/image';
 
 interface ScanScreenProps {
   settings?: AppSettings;
@@ -44,9 +45,11 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onload = (event) => {
+      reader.onload = async (event) => {
         const base64 = event.target?.result as string;
-        setSelectedImage(base64);
+        // Resize before it ever reaches state, so the upload stays well under
+        // the 4.5 MB serverless request body limit.
+        setSelectedImage(await downscaleImage(base64));
         setScanResult(null);
         setErrorMsg(null);
       };
@@ -82,8 +85,8 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({
       const ctx = canvas.getContext('2d');
       if (ctx) {
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const dataUrl = canvas.toDataURL('image/jpeg');
-        setSelectedImage(dataUrl);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        downscaleImage(dataUrl).then(setSelectedImage);
 
         // Stop camera stream
         const stream = video.srcObject as MediaStream;
@@ -110,9 +113,13 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({
     setErrorMsg(null);
 
     try {
-      // Check if it's sample image or real base64
-      let base64ToSend = selectedImage;
-      
+      // Captured/uploaded photos are already downscaled data URLs. Sample photos
+      // are remote URLs, so fetch them into a canvas to get real inline base64.
+      const base64ToSend = selectedImage.startsWith('data:')
+        ? selectedImage
+        : await downscaleImage(selectedImage);
+
+
       // Send to server API
       const response = await fetch('/api/scan-fridge', {
         method: 'POST',

@@ -3,7 +3,18 @@
  * Real-time Bidirectional Audio & Video Client for Gemini Live API
  * Handles 16kHz PCM mic capture, 24kHz PCM low-latency audio playback,
  * live transcription, interruption handling, and visualizer waveform metrics.
+ *
+ * DEPLOYMENT NOTE (Vercel):
+ * This client connects DIRECTLY to the Gemini Live API over Google's own
+ * WebSocket, authenticated with a single-use ephemeral token minted by
+ * `/api/live-token`. The previous AI Studio build proxied audio through a
+ * self-hosted `ws://.../live` endpoint, which cannot work on Vercel because
+ * serverless functions are short-lived and cannot hold a WebSocket open — that
+ * is the "WebSocket error" seen after deploying. GEMINI_API_KEY still never
+ * reaches the browser: the token carries a locked session config instead.
  */
+
+import type { Session } from '@google/genai';
 
 export interface GeminiLiveClientOptions {
   language?: string;
@@ -21,9 +32,9 @@ export interface GeminiLiveClientOptions {
 }
 
 export class GeminiLiveClient {
-  private ws: WebSocket | null = null;
+  private session: Session | null = null;
   private options: GeminiLiveClientOptions;
-  
+
   // Audio Input (16kHz PCM capture)
   private inputAudioContext: AudioContext | null = null;
   private micStream: MediaStream | null = null;
@@ -43,59 +54,94 @@ export class GeminiLiveClient {
   private animFrameId: number | null = null;
   private isConnected = false;
   private isMuted = false;
+  private isClosing = false;
 
   constructor(options: GeminiLiveClientOptions) {
     this.options = options;
   }
 
   public async connect(): Promise<void> {
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const lang = this.options.language || 'ar-MA';
-    const voice = this.options.voiceName || 'Zephyr';
-    const wsUrl = `${protocol}//${window.location.host}/live?lang=${encodeURIComponent(lang)}&voice=${encodeURIComponent(voice)}`;
+    this.isClosing = false;
 
     try {
-      this.ws = new WebSocket(wsUrl);
-
-      this.ws.onopen = async () => {
-        console.log('[GeminiLive] WebSocket connected, initializing mic & audio context');
-        this.isConnected = true;
-        
-        // Send initial fridge inventory & recipe context
-        this.send({
-          type: 'init_context',
+      // 1. Ask our own server for a short-lived token. The fridge inventory and
+      //    active recipe are baked into the token's locked system instruction.
+      const tokenRes = await fetch('/api/live-token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           inventory: this.options.inventory || [],
           recipe: this.options.recipe || null,
-        });
+          voiceName: this.options.voiceName || 'Zephyr',
+        }),
+      });
 
-        // Start Microphone & Audio systems
-        await this.startAudioPipeline();
-        this.options.onSessionReady?.();
-      };
+      if (!tokenRes.ok) {
+        const detail = await tokenRes.json().catch(() => ({} as any));
+        throw new Error(detail?.error || `Could not start live session (${tokenRes.status})`);
+      }
 
-      this.ws.onmessage = (event) => {
-        try {
-          const msg = JSON.parse(event.data);
-          this.handleServerMessage(msg);
-        } catch (e) {
-          console.error('[GeminiLive] Error parsing server message:', e);
-        }
-      };
+      const { token, model } = await tokenRes.json();
+      if (!token) throw new Error('Live session token missing from server response');
 
-      this.ws.onerror = (err) => {
-        console.error('[GeminiLive] WebSocket error:', err);
-        this.options.onError?.('WebSocket connection error');
-      };
+      // 2. Load the SDK lazily so it stays out of the initial bundle.
+      const { GoogleGenAI, Modality } = await import('@google/genai');
 
-      this.ws.onclose = () => {
-        console.log('[GeminiLive] WebSocket closed');
-        this.isConnected = false;
-        this.options.onClose?.();
-        this.cleanup();
-      };
+      // Ephemeral tokens are supported on v1alpha only.
+      const ai = new GoogleGenAI({
+        apiKey: token,
+        httpOptions: { apiVersion: 'v1alpha' },
+      });
+
+      this.session = await ai.live.connect({
+        model: model || 'gemini-3.1-flash-live-preview',
+        // The real config (voice, persona, transcription) is locked into the
+        // token server-side; anything sent here would be ignored.
+        config: { responseModalities: [Modality.AUDIO] },
+        callbacks: {
+          onopen: async () => {
+            console.log('[GeminiLive] Session open, initializing mic & audio context');
+            this.isConnected = true;
+
+            await this.startAudioPipeline();
+            this.options.onSessionReady?.();
+
+            // Prompt the assistant to greet the user out loud first.
+            try {
+              this.session?.sendClientContent({
+                turns: [
+                  {
+                    role: 'user',
+                    parts: [
+                      {
+                        text: '(The user just opened the live voice session in the kitchen. Greet them out loud in one short sentence as their culinary sous-chef.)',
+                      },
+                    ],
+                  },
+                ],
+                turnComplete: true,
+              });
+            } catch (e) {
+              console.warn('[GeminiLive] Greeting send failed:', e);
+            }
+          },
+          onmessage: (message: any) => this.handleServerMessage(message),
+          onerror: (err: any) => {
+            console.error('[GeminiLive] Session error:', err);
+            this.options.onError?.(err?.message || 'Live session error');
+          },
+          onclose: (event: any) => {
+            console.log('[GeminiLive] Session closed', event?.reason || '');
+            this.isConnected = false;
+            this.options.onClose?.();
+            if (!this.isClosing) this.cleanup();
+          },
+        },
+      });
     } catch (err: any) {
       console.error('[GeminiLive] Connect error:', err);
       this.options.onError?.(err?.message || 'Failed to connect to Live session');
+      this.options.onClose?.();
     }
   }
 
@@ -139,7 +185,9 @@ export class GeminiLiveClient {
         const inputData = e.inputBuffer.getChannelData(0);
         const pcm16Base64 = this.float32ToPcm16Base64(inputData);
         if (pcm16Base64) {
-          this.send({ audio: pcm16Base64 });
+          this.sendRealtime({
+            audio: { data: pcm16Base64, mimeType: 'audio/pcm;rate=16000' },
+          });
         }
       };
 
@@ -154,19 +202,33 @@ export class GeminiLiveClient {
     }
   }
 
-  private handleServerMessage(msg: any) {
-    if (msg.type === 'audio' && msg.audio) {
-      this.playPcm24kAudio(msg.audio);
-    } else if (msg.type === 'modelTranscript' && msg.text) {
-      this.options.onModelTranscript?.(msg.text);
-    } else if (msg.type === 'userTranscript' && msg.text) {
-      this.options.onUserTranscript?.(msg.text);
-    } else if (msg.type === 'interrupted') {
+  private handleServerMessage(message: any) {
+    const serverContent = message?.serverContent;
+    if (!serverContent) return;
+
+    // Barge-in: user started talking over the model.
+    if (serverContent.interrupted) {
       this.handleInterruption();
-    } else if (msg.type === 'turnComplete') {
-      // Model finished output turn
-    } else if (msg.type === 'error') {
-      this.options.onError?.(msg.error);
+      return;
+    }
+
+    // Audio comes back as inline PCM parts on the model turn.
+    const parts = serverContent.modelTurn?.parts || [];
+    for (const part of parts) {
+      if (part?.inlineData?.data) {
+        this.playPcm24kAudio(part.inlineData.data);
+      }
+      if (part?.text) {
+        this.options.onModelTranscript?.(part.text);
+      }
+    }
+
+    // Live transcription of what the model is saying / what the user said.
+    if (serverContent.outputTranscription?.text) {
+      this.options.onModelTranscript?.(serverContent.outputTranscription.text);
+    }
+    if (serverContent.inputTranscription?.text) {
+      this.options.onUserTranscript?.(serverContent.inputTranscription.text);
     }
   }
 
@@ -183,18 +245,21 @@ export class GeminiLiveClient {
         bytes[i] = binaryString.charCodeAt(i);
       }
 
-      const pcm16 = new Int16Array(bytes.buffer);
+      // Guard against an odd byte count so the Int16Array view is always valid.
+      const usableBytes = bytes.length - (bytes.length % 2);
+      const pcm16 = new Int16Array(bytes.buffer, 0, usableBytes / 2);
       const float32 = new Float32Array(pcm16.length);
       for (let i = 0; i < pcm16.length; i++) {
         float32[i] = pcm16[i] / 32768;
       }
+      if (float32.length === 0) return;
 
       const audioBuffer = this.outputAudioContext.createBuffer(1, float32.length, 24000);
       audioBuffer.getChannelData(0).set(float32);
 
       const sourceNode = this.outputAudioContext.createBufferSource();
       sourceNode.buffer = audioBuffer;
-      
+
       if (this.outputAnalyser) {
         sourceNode.connect(this.outputAnalyser);
       } else {
@@ -232,6 +297,7 @@ export class GeminiLiveClient {
     // Stop all actively playing audio sources immediately
     for (const source of this.activeAudioSources) {
       try {
+        source.onended = null;
         source.stop();
         source.disconnect();
       } catch (e) {}
@@ -269,21 +335,27 @@ export class GeminiLiveClient {
 
   public sendText(text: string) {
     if (!text.trim()) return;
-    this.send({ text });
+    this.sendRealtime({ text });
   }
 
   public sendVideoFrame(base64Jpeg: string) {
     if (!base64Jpeg) return;
-    this.send({ video: base64Jpeg });
+    const data = base64Jpeg.replace(/^data:image\/\w+;base64,/, '');
+    this.sendRealtime({ video: { data, mimeType: 'image/jpeg' } });
   }
 
   public setMuted(muted: boolean) {
     this.isMuted = muted;
+    // Also gate the track itself so nothing leaks while muted.
+    this.micStream?.getAudioTracks().forEach((track) => (track.enabled = !muted));
   }
 
-  private send(data: any) {
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify(data));
+  private sendRealtime(payload: any) {
+    if (!this.session || !this.isConnected) return;
+    try {
+      this.session.sendRealtimeInput(payload);
+    } catch (e) {
+      console.warn('[GeminiLive] Failed to send realtime input:', e);
     }
   }
 
@@ -321,6 +393,9 @@ export class GeminiLiveClient {
   }
 
   public cleanup() {
+    this.isClosing = true;
+    this.isConnected = false;
+
     if (this.animFrameId) {
       cancelAnimationFrame(this.animFrameId);
       this.animFrameId = null;
@@ -335,6 +410,7 @@ export class GeminiLiveClient {
 
     if (this.inputProcessor) {
       try {
+        this.inputProcessor.onaudioprocess = null;
         this.inputProcessor.disconnect();
       } catch (e) {}
       this.inputProcessor = null;
@@ -366,14 +442,13 @@ export class GeminiLiveClient {
       this.outputAudioContext = null;
     }
 
-    if (this.ws) {
+    if (this.session) {
       try {
-        this.ws.close();
+        this.session.close();
       } catch (e) {}
-      this.ws = null;
+      this.session = null;
     }
 
-    this.isConnected = false;
     this.setIsModelSpeaking(false);
   }
 }
