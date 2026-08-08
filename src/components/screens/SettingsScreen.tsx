@@ -39,6 +39,10 @@ const VOICES = [
   { id: 'Charon', name: 'Charon (Smooth Tone)' },
 ];
 
+// Contact links
+const INSTAGRAM_URL = 'https://www.instagram.com/cold.scan/';
+const BUSINESS_EMAIL = 'yassineab2014@gmail.com';
+
 export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   settings,
   onUpdateSettings,
@@ -203,6 +207,30 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           </div>
         </div>
 
+        {/* Contact & Links */}
+        <div className="space-y-2 pt-3 border-t border-slate-100">
+          <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+            Contact & Links
+          </label>
+          <div className="flex flex-col gap-2 pt-2">
+            <a
+              href={INSTAGRAM_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-3 py-2 rounded-xl text-[13px] font-black uppercase border bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100 inline-flex items-center gap-3"
+            >
+              Instagram — @cold.scan
+            </a>
+
+            <a
+              href={`mailto:${BUSINESS_EMAIL}?subject=ColdScan%20Business%20Inquiry`}
+              className="px-3 py-2 rounded-xl text-[13px] font-black uppercase border bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100 inline-flex items-center gap-3"
+            >
+              Business Email — {BUSINESS_EMAIL}
+            </a>
+          </div>
+        </div>
+
       </div>
 
       {/* Data Management Card */}
@@ -213,7 +241,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         </p>
         <button
           onClick={onResetData}
-          className="w-full py-3 px-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 font-black text-xs uppercase tracking-widest hover:bg-rose-100 flex items-center justify-center gap-2 transition-colors"
+          className="w-full py-3 px-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 font-black text-xs uppercase tracking-widest hover:bg-rose-100 flex items-center justify-center gap-3"
         >
           <RotateCcw className="w-4 h-4" />
           Reset Demo Data
