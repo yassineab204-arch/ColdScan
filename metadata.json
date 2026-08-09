@@ -1,0 +1,11 @@
+{
+  "name": "ColdScan",
+  "description": "Mobile-first AI app to analyze refrigerator contents, detect freshness, suggest recipes based on available ingredients, generate missing item shopping lists with cost estimates, and provide Gemini Live real-time multimodal assistance.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
