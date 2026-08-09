@@ -1,5 +1,5 @@
 import React from 'react';
-import { Refrigerator, Sparkles, AlertCircle, Mic, Settings, Globe } from 'lucide-react';
+import { Refrigerator, Sparkles, AlertCircle, Mic, MessageCircle, Settings, Globe } from 'lucide-react';
 import { TabType, LanguageType } from '../types';
 import { t } from '../utils/i18n';
 
@@ -8,6 +8,7 @@ interface HeaderProps {
   expiringCount: number;
   language?: LanguageType;
   onOpenLiveVoice: () => void;
+  onOpenAssistant: () => void;
   onNavigate: (tab: TabType) => void;
   onSelectLanguage?: (lang: LanguageType) => void;
 }
@@ -17,6 +18,7 @@ export const Header: React.FC<HeaderProps> = ({
   expiringCount,
   language = 'en',
   onOpenLiveVoice,
+  onOpenAssistant,
   onNavigate,
   onSelectLanguage,
 }) => {
@@ -132,6 +134,18 @@ export const Header: React.FC<HeaderProps> = ({
               <span className="font-mono text-xs">{expiringCount}</span>
             </button>
           )}
+
+          <button
+            onClick={onOpenAssistant}
+            className="flex items-center gap-1 bg-emerald-50 px-2 py-1.5 rounded-xl border border-emerald-200 hover:bg-emerald-100 hover:scale-105 active:scale-95 transition-all duration-200 shadow-xs"
+            title={t('askAiTitle', currentLang)}
+            aria-label={t('askAiTitle', currentLang)}
+          >
+            <MessageCircle className="w-3.5 h-3.5 text-emerald-700" />
+            <span className="text-[10px] font-black text-emerald-700 uppercase tracking-wider hidden sm:inline">
+              {t('askAi', currentLang)}
+            </span>
+          </button>
 
           <button
             onClick={onOpenLiveVoice}
