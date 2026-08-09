@@ -16,7 +16,8 @@ import {
   Settings,
   Globe,
   Sliders,
-  Volume2
+  Volume2,
+  MessageCircle
 } from 'lucide-react';
 import { FoodItem, Recipe, TabType, AppSettings, LanguageType } from '../../types';
 import { convertCurrency, formatCurrencyAmount } from '../../utils/currency';
@@ -29,6 +30,7 @@ interface HomeScreenProps {
   onUpdateSettings?: (settings: Partial<AppSettings>) => void;
   onNavigate: (tab: TabType) => void;
   onOpenLiveVoice: () => void;
+  onOpenAssistant?: () => void;
   onQuickScan: () => void;
 }
 
@@ -39,6 +41,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   onUpdateSettings,
   onNavigate,
   onOpenLiveVoice,
+  onOpenAssistant,
   onQuickScan,
 }) => {
   const currency = settings.currency || 'DH';
@@ -318,6 +321,23 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           </select>
         </div>
       </div>
+
+      {/* Floating AI Chat Button */}
+      {onOpenAssistant && (
+        <button
+          onClick={onOpenAssistant}
+          aria-label={t('askAiTitle', currentLang)}
+          title={t('askAiTitle', currentLang)}
+          className="fixed bottom-20 right-4 sm:right-6 z-30 flex items-center gap-2 bg-emerald-600 text-white pl-3 pr-4 py-3 rounded-full shadow-lg shadow-emerald-600/30 hover:bg-emerald-700 hover:scale-105 active:scale-95 transition-all duration-200"
+        >
+          <MessageCircle className="w-5 h-5" />
+          <span className="text-xs font-black uppercase tracking-wider">{t('askAi', currentLang)}</span>
+          <span className="absolute -top-1 -right-1 flex h-3 w-3">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-300 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-400 ring-2 ring-white"></span>
+          </span>
+        </button>
+      )}
 
     </div>
   );

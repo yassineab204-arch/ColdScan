@@ -9,6 +9,7 @@ import {
 import { Header } from './components/Header';
 import { Navigation } from './components/Navigation';
 import { LiveVoiceModal } from './components/LiveVoiceModal';
+import { AssistantChatModal } from './components/AssistantChatModal';
 
 import { HomeScreen } from './components/screens/HomeScreen';
 import { ScanScreen } from './components/screens/ScanScreen';
@@ -23,6 +24,7 @@ import { convertCurrency } from './utils/currency';
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabType>('home');
   const [isLiveVoiceOpen, setIsLiveVoiceOpen] = useState(false);
+  const [isAssistantOpen, setIsAssistantOpen] = useState(false);
 
   // Persistent State
   const [inventory, setInventory] = useState<FoodItem[]>(() => {
@@ -253,6 +255,7 @@ export default function App() {
         expiringCount={expiringCount}
         language={settings.language}
         onOpenLiveVoice={() => setIsLiveVoiceOpen(true)}
+        onOpenAssistant={() => setIsAssistantOpen(true)}
         onNavigate={(tab) => setActiveTab(tab)}
         onSelectLanguage={(lang) => setSettings((prev) => ({ ...prev, language: lang }))}
       />
@@ -267,6 +270,7 @@ export default function App() {
             onUpdateSettings={(newSettings) => setSettings((prev) => ({ ...prev, ...newSettings }))}
             onNavigate={(tab) => setActiveTab(tab)}
             onOpenLiveVoice={() => setIsLiveVoiceOpen(true)}
+            onOpenAssistant={() => setIsAssistantOpen(true)}
             onQuickScan={() => setActiveTab('scan')}
           />
         )}
@@ -346,6 +350,14 @@ export default function App() {
           setIsLiveVoiceOpen(false);
           setActiveTab('shopping');
         }}
+      />
+
+      {/* Text AI Assistant Modal */}
+      <AssistantChatModal
+        isOpen={isAssistantOpen}
+        onClose={() => setIsAssistantOpen(false)}
+        inventory={inventory}
+        settings={settings}
       />
 
       {/* Mobile Bottom Navigation */}
