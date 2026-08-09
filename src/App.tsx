@@ -19,26 +19,94 @@ import { CostEstimateScreen } from './components/screens/CostEstimateScreen';
 import { SettingsScreen } from './components/screens/SettingsScreen';
 
 import { convertCurrency } from './utils/currency';
+import {
+  buildExpiryNotice,
+  clearNotifiedItemIds,
+  getExpiringItems,
+  getNotifiedItemIds,
+  saveNotifiedItemIds,
+  showExpiryNotification,
+} from './utils/notifications';
+
+const getInitialInventory = (): FoodItem[] => {
+  const saved = localStorage.getItem('coldscan_inventory');
+  if (!saved) return [];
+  
+  try {
+    const parsed = JSON.parse(saved);
+    if (!Array.isArray(parsed)) return [];
+    
+    // Check if this is the old demo data (has 12 items with specific demo names)
+    const isDemoData = parsed.length === 12 && 
+      parsed.some(item => item.name === 'Organic Spinach') &&
+      parsed.some(item => item.name === 'Whole Milk');
+    
+    if (isDemoData) {
+      localStorage.removeItem('coldscan_inventory');
+      return [];
+    }
+    
+    return parsed;
+  } catch {
+    return [];
+  }
+};
+
+const getInitialRecipes = (): Recipe[] => {
+  const saved = localStorage.getItem('coldscan_recipes');
+  if (!saved) return [];
+  
+  try {
+    const parsed = JSON.parse(saved);
+    if (!Array.isArray(parsed)) return [];
+    
+    // Check if this is the old demo data
+    const isDemoData = parsed.length === 4 && 
+      parsed.some(r => r.name === 'Spinach & Cheddar Omelette');
+    
+    if (isDemoData) {
+      localStorage.removeItem('coldscan_recipes');
+      return [];
+    }
+    
+    return parsed;
+  } catch {
+    return [];
+  }
+};
+
+const getInitialShoppingList = (): ShoppingItem[] => {
+  const saved = localStorage.getItem('coldscan_shopping');
+  if (!saved) return [];
+  
+  try {
+    const parsed = JSON.parse(saved);
+    if (!Array.isArray(parsed)) return [];
+    
+    // Check if this is the old demo data
+    const isDemoData = parsed.length === 5 && 
+      parsed.some(item => item.name === 'Butter (Unsalted)');
+    
+    if (isDemoData) {
+      localStorage.removeItem('coldscan_shopping');
+      return [];
+    }
+    
+    return parsed;
+  } catch {
+    return [];
+  }
+};
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabType>('home');
   const [isLiveVoiceOpen, setIsLiveVoiceOpen] = useState(false);
+  const [expiryNotice, setExpiryNotice] = useState<{ title: string; body: string } | null>(null);
 
   // Persistent State
-  const [inventory, setInventory] = useState<FoodItem[]>(() => {
-    const saved = localStorage.getItem('coldscan_inventory');
-    return saved ? JSON.parse(saved) : INITIAL_INVENTORY;
-  });
-
-  const [recipes, setRecipes] = useState<Recipe[]>(() => {
-    const saved = localStorage.getItem('coldscan_recipes');
-    return saved ? JSON.parse(saved) : DEFAULT_RECIPES;
-  });
-
-  const [shoppingList, setShoppingList] = useState<ShoppingItem[]>(() => {
-    const saved = localStorage.getItem('coldscan_shopping');
-    return saved ? JSON.parse(saved) : DEFAULT_SHOPPING_LIST;
-  });
+  const [inventory, setInventory] = useState<FoodItem[]>(getInitialInventory);
+  const [recipes, setRecipes] = useState<Recipe[]>(getInitialRecipes);
+  const [shoppingList, setShoppingList] = useState<ShoppingItem[]>(getInitialShoppingList);
 
   const [settings, setSettings] = useState<AppSettings>(() => {
     const saved = localStorage.getItem('coldscan_settings');
