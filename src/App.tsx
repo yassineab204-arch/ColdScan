@@ -116,6 +116,51 @@ export default function App() {
   const [isGeneratingRecipes, setIsGeneratingRecipes] = useState(false);
   const [isGeneratingList, setIsGeneratingList] = useState(false);
 
+  // Clean up demo data on first mount - double-check
+  useEffect(() => {
+    const cleanupDemoData = () => {
+      try {
+        const inv = localStorage.getItem('coldscan_inventory');
+        if (inv) {
+          const parsed = JSON.parse(inv);
+          const isDemoInv = Array.isArray(parsed) && parsed.length === 12 && 
+            parsed.some((item: FoodItem) => item.name === 'Organic Spinach') &&
+            parsed.some((item: FoodItem) => item.name === 'Whole Milk');
+          if (isDemoInv) {
+            localStorage.removeItem('coldscan_inventory');
+            setInventory([]);
+          }
+        }
+
+        const rec = localStorage.getItem('coldscan_recipes');
+        if (rec) {
+          const parsed = JSON.parse(rec);
+          const isDemoRec = Array.isArray(parsed) && parsed.length === 4 && 
+            parsed.some((r: Recipe) => r.name === 'Spinach & Cheddar Omelette');
+          if (isDemoRec) {
+            localStorage.removeItem('coldscan_recipes');
+            setRecipes([]);
+          }
+        }
+
+        const shop = localStorage.getItem('coldscan_shopping');
+        if (shop) {
+          const parsed = JSON.parse(shop);
+          const isDemoShop = Array.isArray(parsed) && parsed.length === 5 && 
+            parsed.some((item: ShoppingItem) => item.name === 'Butter (Unsalted)');
+          if (isDemoShop) {
+            localStorage.removeItem('coldscan_shopping');
+            setShoppingList([]);
+          }
+        }
+      } catch (e) {
+        console.error('Error cleaning up demo data:', e);
+      }
+    };
+    
+    cleanupDemoData();
+  }, []);
+
   // Sync to local storage
   useEffect(() => {
     localStorage.setItem('coldscan_inventory', JSON.stringify(inventory));

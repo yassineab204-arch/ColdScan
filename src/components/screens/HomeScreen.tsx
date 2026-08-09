@@ -141,18 +141,18 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           </p>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 mt-1">
+        <div className="flex flex-col gap-2 mt-4">
           <button
             onClick={onQuickScan}
-            className="py-3 px-3 rounded-2xl bg-emerald-500 text-slate-900 font-black text-xs uppercase tracking-widest flex items-center justify-center gap-1.5 hover:bg-emerald-400 hover:scale-[1.03] active:scale-[0.97] transition-all duration-200 shadow-md hover:shadow-emerald-500/30"
+            className="w-full py-4 px-4 rounded-2xl bg-emerald-500 text-slate-900 font-black text-sm uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-emerald-400 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 shadow-lg hover:shadow-emerald-500/40"
           >
-            <Camera className="w-4 h-4" />
+            <Camera className="w-5 h-5" />
             {t('scanNow', currentLang)}
           </button>
 
           <button
             onClick={onOpenLiveVoice}
-            className="py-3 px-3 rounded-2xl bg-white/15 text-white font-black text-xs uppercase tracking-widest border border-white/20 flex items-center justify-center gap-1.5 hover:bg-white/25 hover:scale-[1.03] active:scale-[0.97] transition-all duration-200 shadow-xs"
+            className="w-full py-3 px-4 rounded-2xl bg-white/15 text-white font-black text-xs uppercase tracking-widest border border-white/20 flex items-center justify-center gap-1.5 hover:bg-white/25 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 shadow-xs"
           >
             <Mic className="w-4 h-4 text-emerald-400" />
             {t('liveVoice', currentLang)}
