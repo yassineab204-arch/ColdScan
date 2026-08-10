@@ -50,6 +50,14 @@ export default function App() {
   const [isGeneratingRecipes, setIsGeneratingRecipes] = useState(false);
   const [isGeneratingList, setIsGeneratingList] = useState(false);
 
+  // Keep the document language and direction in sync as well. This affects native
+  // controls, accessibility tools, and right-to-left Arabic/Darija layouts.
+  useEffect(() => {
+    const language = settings.language || 'en';
+    document.documentElement.lang = language;
+    document.documentElement.dir = language === 'ar' || language === 'ar-MA' ? 'rtl' : 'ltr';
+  }, [settings.language]);
+
   // Sync to local storage
   useEffect(() => {
     localStorage.setItem('coldscan_inventory', JSON.stringify(inventory));
@@ -306,6 +314,7 @@ export default function App() {
           <RecipesScreen
             recipes={recipes}
             inventory={inventory}
+            settings={settings}
             onAddMissingToShoppingList={handleAddMissingToShoppingList}
             onRefreshRecipes={handleRefreshRecipes}
             isGenerating={isGeneratingRecipes}

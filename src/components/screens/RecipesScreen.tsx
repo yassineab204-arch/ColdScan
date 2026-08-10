@@ -99,18 +99,14 @@ export const RecipesScreen: React.FC<RecipesScreenProps> = ({
             <div className="flex items-center gap-2">
               <span className="px-2.5 py-0.5 rounded-full bg-cold/15 text-cold font-mono text-[9px] font-black uppercase tracking-wider border border-cold/30 flex items-center gap-1">
                 <Sparkles className="w-3 h-3 text-cold" />
-                SOUS-CHEF VOICE
+                {t('voiceGuide', lang)}
               </span>
             </div>
             <h3 className="text-lg font-black text-white leading-tight">
-              {lang === 'fr' ? 'Chef Vocal Mains Libres' : lang === 'ar-MA' ? 'المساعد الصوتي للطياب' : 'Hands-Free Recipe Voice Guide'}
+              {t('voiceGuide', lang)}
             </h3>
             <p className="text-xs text-slate-300 font-medium leading-snug max-w-[280px]">
-              {lang === 'fr' 
-                ? 'Posez vos questions, demandez des substitutions et laissez le Chef vous dicter chaque étape pendant que vous cuisinez.'
-                : lang === 'ar-MA'
-                ? 'سول الشاف على المقادير، البدائل، ولا خليه يوجهك خطوة بخطوة بالصوت وأنت كطيب بلا ما تقيس التيليفون.'
-                : 'Ask what to cook, get step-by-step voice guidance, set timers, and ask for substitutions hands-free!'}
+              {t('voiceGuideDescription', lang)}
             </p>
           </div>
 
@@ -120,16 +116,16 @@ export const RecipesScreen: React.FC<RecipesScreenProps> = ({
             title="Launch Voice Bot"
           >
             <Mic className="w-5 h-5 text-pine-deep" />
-            <span className="text-[9px] uppercase tracking-widest font-black">TALK</span>
+            <span className="text-[9px] uppercase tracking-widest font-black">{t('talk', lang)}</span>
           </button>
         </div>
 
         {/* Quick Spoken Prompts */}
         <div className="mt-3 pt-3 border-t border-white/10 flex items-center gap-1.5 overflow-x-auto scrollbar-none">
           {[
-            lang === 'fr' ? 'Que cuisiner en 15 min ?' : lang === 'ar-MA' ? 'شنو نطيب دغيا ؟' : 'Quick 15-min dinner?',
-            lang === 'fr' ? 'Guider étape par étape' : lang === 'ar-MA' ? 'وجهني خطوة بخطوة' : 'Guide me step-by-step',
-            lang === 'fr' ? 'Remplacer le beurre ?' : lang === 'ar-MA' ? 'باش نبدل الزبدة ؟' : 'Substitute for butter?',
+            t('assistantQuickQuickMeal', lang),
+            t('stepsBtn', lang),
+            t('missingIngredients', lang),
           ].map((prompt, pIdx) => (
             <button
               key={pIdx}

@@ -93,7 +93,7 @@ export const ShoppingListScreen: React.FC<ShoppingListScreenProps> = ({
       {copiedToast && (
         <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50 bg-pine text-cold text-xs font-black uppercase tracking-widest px-4 py-2.5 rounded-full shadow-2xl flex items-center gap-2 border border-cold/30 animate-in fade-in slide-in-from-top-4">
           <Check className="w-4 h-4 text-cold" />
-          <span>Shopping List Copied to Clipboard!</span>
+          <span>{t('copied', lang)}</span>
         </div>
       )}
 
@@ -147,13 +147,13 @@ export const ShoppingListScreen: React.FC<ShoppingListScreenProps> = ({
               className="flex-1 py-2.5 px-3 rounded-xl bg-pine text-cold font-black text-[11px] uppercase tracking-widest hover:bg-pine-light transition-colors flex items-center justify-center gap-1.5 shadow-xs"
             >
               <PackageCheck className="w-3.5 h-3.5 text-cold" />
-              <span>Restock Bought ({boughtCount})</span>
+              <span>{t('restockBought', lang).replace('__count__', String(boughtCount))}</span>
             </button>
             <button
               onClick={handleClearBought}
               className="px-3 py-2.5 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 font-black text-[10px] uppercase tracking-wider hover:bg-rose-100 transition-colors"
             >
-              Clear Done
+              {t('clearDone', lang)}
             </button>
           </div>
         )}
@@ -166,7 +166,7 @@ export const ShoppingListScreen: React.FC<ShoppingListScreenProps> = ({
           type="text"
           value={newItemName}
           onChange={(e) => setNewItemName(e.target.value)}
-          placeholder="Add item e.g. Olive Oil, Garlic, Oats..."
+          placeholder={t('addItemExample', lang)}
           className="min-w-0 flex-1 px-3.5 py-2.5 bg-white border border-slate-200 rounded-2xl text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-cold shadow-xs"
         />
         <div className="w-20 sm:w-24 relative flex items-center shrink-0">
@@ -194,9 +194,9 @@ export const ShoppingListScreen: React.FC<ShoppingListScreenProps> = ({
             <ShoppingBag className="w-6 h-6" />
           </div>
           <div>
-            <h3 className="font-bold text-slate-800 text-sm">Shopping List is Empty</h3>
+            <h3 className="font-bold text-slate-800 text-sm">{t('shoppingEmpty', lang)}</h3>
             <p className="text-xs text-slate-500 mt-0.5">
-              Add missing ingredients from recipes or use Auto-Fill to restock essentials.
+              {t('shoppingEmptyDescription', lang)}
             </p>
           </div>
           <button
@@ -204,7 +204,7 @@ export const ShoppingListScreen: React.FC<ShoppingListScreenProps> = ({
             className="px-4 py-2 rounded-xl bg-cold text-pine-deep font-semibold text-xs inline-flex items-center gap-1"
           >
             <Sparkles className="w-3.5 h-3.5" />
-            Auto-Generate List
+            {t('autoGenerate', lang)}
           </button>
         </div>
       ) : (

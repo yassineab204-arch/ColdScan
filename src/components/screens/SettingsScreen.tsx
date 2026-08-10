@@ -114,7 +114,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-1.5">
               <DollarSign className="w-4 h-4 text-cold-dark shrink-0" />
-              Preferred Currency
+              {t('preferredCurrency', lang)}
             </label>
             <select
               value={settings.currency || 'DH'}
@@ -134,7 +134,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         <div className="space-y-1.5 pt-3 border-t border-slate-100">
           <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-1.5">
             <Bell className="w-4 h-4 text-amber-600" />
-            Expiry Alert Threshold
+            {t('expiryAlert', lang)}
           </label>
           <select
             value={settings.wasteAlertDays}
@@ -153,7 +153,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           <div className="flex items-start justify-between gap-3">
             <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-start gap-1.5">
               <Volume2 className="w-4 h-4 text-cold-dark shrink-0" />
-              Enable Voice Responses
+              {t('voiceResponses', lang)}
             </label>
             <input
               type="checkbox"
@@ -165,7 +165,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
           {settings.voiceOutputEnabled && (
             <div className="space-y-1">
-              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Voice Persona</span>
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{t('voicePersona', lang)}</span>
               <select
                 value={settings.voiceName}
                 onChange={(e) => onUpdateSettings({ voiceName: e.target.value })}
@@ -185,7 +185,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         <div className="space-y-2 pt-3 border-t border-slate-100">
           <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-1.5">
             <Utensils className="w-4 h-4 text-cold-dark" />
-            Dietary Preferences & Goals
+            {t('dietaryGoals', lang)}
           </label>
           <div className="flex flex-wrap gap-1.5">
             {DIETARY_OPTIONS.map((item) => {
@@ -210,7 +210,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         {/* Contact & Links */}
         <div className="space-y-2 pt-3 border-t border-slate-100">
           <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">
-            Contact & Links
+            {t('contactLinks', lang)}
           </label>
           <div className="flex flex-col gap-2 pt-2">
             <a
@@ -235,16 +235,16 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
       {/* Data Management Card */}
       <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-xs space-y-3">
-        <h3 className="font-black text-slate-900 text-sm uppercase tracking-tight">Demo Data & Storage</h3>
+        <h3 className="font-black text-slate-900 text-sm uppercase tracking-tight">{t('demoData', lang)}</h3>
         <p className="text-xs text-slate-500 leading-relaxed font-medium">
-          Reset ColdScan to initial refrigerator inventory, recipes, and shopping list state for testing.
+          {t('resetDataDescription', lang)}
         </p>
         <button
           onClick={onResetData}
           className="w-full py-3 px-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 font-black text-xs uppercase tracking-widest hover:bg-rose-100 flex items-center justify-center gap-3"
         >
           <RotateCcw className="w-4 h-4" />
-          Reset Demo Data
+          {t('resetDemoData', lang)}
         </button>
       </div>
 
