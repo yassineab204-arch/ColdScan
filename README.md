@@ -60,6 +60,8 @@ To change the assistant's persona, model, or voice, edit
 | `/api/scan-fridge`           | Vision scan of a fridge photo             |
 | `/api/generate-recipes`      | Recipes from current inventory            |
 | `/api/generate-shopping-list`| Costed shopping list (MAD)                |
+| `/api/geocode`               | Manual map-area geocoding fallback        |
+| `/api/nearby-stores`         | Real nearby food shops from OpenStreetMap |
 | `/api/ai-chat`               | Text assistant                            |
 | `/api/recipe-voice-bot`      | Cooking sous-chef turns + step/timer actions |
 | `/api/tts`                   | Speech synthesis (WAV)                    |

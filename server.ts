@@ -15,8 +15,10 @@ import { createServer as createViteServer } from 'vite';
 import aiChat from './api/ai-chat.js';
 import generateRecipes from './api/generate-recipes.js';
 import generateShoppingList from './api/generate-shopping-list.js';
+import geocode from './api/geocode.js';
 import health from './api/health.js';
 import liveToken from './api/live-token.js';
+import nearbyStores from './api/nearby-stores.js';
 import recipeVoiceBot from './api/recipe-voice-bot.js';
 import scanFridge from './api/scan-fridge.js';
 import tts from './api/tts.js';
@@ -35,6 +37,8 @@ const routes: Record<string, ApiHandler> = {
   '/api/scan-fridge': scanFridge,
   '/api/generate-recipes': generateRecipes,
   '/api/generate-shopping-list': generateShoppingList,
+  '/api/geocode': geocode,
+  '/api/nearby-stores': nearbyStores,
   '/api/ai-chat': aiChat,
   '/api/recipe-voice-bot': recipeVoiceBot,
   '/api/tts': tts,

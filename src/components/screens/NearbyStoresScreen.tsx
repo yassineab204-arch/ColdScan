@@ -8,7 +8,6 @@ import {
   LocateFixed,
   Store,
   ShoppingBag,
-  Clock3,
   ExternalLink,
   Loader2,
   AlertTriangle,
@@ -34,6 +33,16 @@ interface NearbyStoresScreenProps {
 // Helpers
 // --------------------------------------------------------
 type LatLng = { lat: number; lon: number };
+type LocationSource = 'device' | 'search';
+
+interface StoreProviderElement {
+  id?: string | number;
+  type?: string;
+  lat?: number;
+  lon?: number;
+  center?: { lat?: number; lon?: number };
+  tags?: Record<string, string>;
+}
 
 interface NearbyStore {
   id: string;
@@ -46,6 +55,15 @@ interface NearbyStore {
   distanceMeters: number;
   tags: Record<string, string>;
   categoriesCovered: string[]; // human categories like Produce, Dairy & Eggs etc.
+  isFeaturedMarket: boolean;
+}
+
+const FEATURED_MARKET_PATTERN = /\b(carrefour|bim|supeco|marjane|aswak assalam|atacadao|kazyon|acima)\b/i;
+
+function isFeaturedMarket(tags: Record<string, string>, name: string): boolean {
+  return FEATURED_MARKET_PATTERN.test(
+    [name, tags.brand, tags.operator, tags.banner].filter(Boolean).join(' ')
+  );
 }
 
 function haversine(a: LatLng, b: LatLng): number {
@@ -66,14 +84,25 @@ function formatDistance(m: number): string {
   return `${(m / 1000).toFixed(m < 10000 ? 1 : 0)} km`;
 }
 
+function formatStoreDistance(
+  meters: number,
+  source: LocationSource | null,
+  lang: LanguageType
+): string {
+  return t(source === 'device' ? 'mapDistanceFromYou' : 'mapDistanceFromArea', lang).replace(
+    '__distance__',
+    formatDistance(meters)
+  );
+}
+
 function shopToCategories(shop: string, amenity?: string): string[] {
   const s = (shop || amenity || '').toLowerCase();
-  if (['supermarket', 'grocery', 'convenience', 'general', 'marketplace', 'supermarche'].includes(s)) {
+  if (['supermarket', 'grocery', 'convenience', 'general', 'marketplace', 'supermarche', 'wholesale'].includes(s)) {
     return ['Produce', 'Dairy & Eggs', 'Proteins', 'Condiments & Sauces', 'Beverages', 'Bakery', 'Pantry & Other'];
   }
   if (s === 'greengrocer' || s === 'farm' || s === 'fruit') return ['Produce'];
-  if (s === 'bakery') return ['Bakery', 'Pantry & Other'];
-  if (s === 'butcher' || s === 'meat') return ['Proteins'];
+  if (s === 'bakery' || s === 'pastry') return ['Bakery', 'Pantry & Other'];
+  if (s === 'butcher' || s === 'meat' || s === 'seafood') return ['Proteins'];
   if (s === 'deli' || s === 'cheese') return ['Dairy & Eggs', 'Proteins', 'Condiments & Sauces'];
   if (s === 'beverages' || s === 'alcohol') return ['Beverages'];
   if (s === 'dairy') return ['Dairy & Eggs'];
@@ -95,47 +124,42 @@ function shopLabel(shop: string, amenity?: string, lang: LanguageType = 'en'): s
   return map[key]?.[lang] || map[key]?.en || (shop ? shop[0].toUpperCase() + shop.slice(1) : 'Store');
 }
 
-function openDirections(lat: number, lon: number, label?: string) {
-  const q = label ? `${lat},${lon} (${encodeURIComponent(label)})` : `${lat},${lon}`;
-  // Prefer Google Maps if available else OSM. Open Google maps directions.
-  window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}&destination_place_id=&travelmode=walking`, '_blank');
+function openDirections(lat: number, lon: number, _label?: string) {
+  // With no origin in the URL, Google Maps uses the device's current location.
+  window.open(
+    `https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}&travelmode=walking&dir_action=navigate`,
+    '_blank',
+    'noopener,noreferrer'
+  );
 }
 
 function openInOSM(lat: number, lon: number) {
-  window.open(`https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=16/${lat}/${lon}`, '_blank');
+  window.open(
+    `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=16/${lat}/${lon}`,
+    '_blank',
+    'noopener,noreferrer'
+  );
 }
 
-// Mock generator for offline/demo fallback
-function generateMockStores(center: LatLng, radius: number, lang: LanguageType): NearbyStore[] {
-  const mocks: { name: string; shop: string; offsetLat: number; offsetLon: number }[] = [
-    { name: 'Carrefour Market', shop: 'supermarket', offsetLat: 0.003, offsetLon: 0.004 },
-    { name: 'Marjane Express', shop: 'supermarket', offsetLat: -0.004, offsetLon: 0.002 },
-    { name: 'Hanout Al Baraka', shop: 'convenience', offsetLat: 0.0015, offsetLon: -0.003 },
-    { name: 'Boulangerie Patisserie', shop: 'bakery', offsetLat: 0.006, offsetLon: -0.001 },
-    { name: 'Marché Central', shop: 'greengrocer', offsetLat: -0.002, offsetLon: -0.005 },
-    { name: 'Boucherie Atlas', shop: 'butcher', offsetLat: 0.008, offsetLon: 0.006 },
-    { name: 'Épicerie Fine', shop: 'grocery', offsetLat: -0.007, offsetLon: 0.007 },
-    { name: 'Super U', shop: 'supermarket', offsetLat: 0.01, offsetLon: -0.004 },
-  ];
-  return mocks
-    .map((m, i) => {
-      const lat = center.lat + m.offsetLat * (radius / 2500);
-      const lon = center.lon + m.offsetLon * (radius / 2500);
-      const d = haversine(center, { lat, lon });
-      if (d > radius) return null;
-      return {
-        id: `mock-${i}`,
-        name: m.name,
-        lat,
-        lon,
-        shop: m.shop,
-        address: 'Demo location',
-        distanceMeters: Math.round(d),
-        tags: { shop: m.shop },
-        categoriesCovered: shopToCategories(m.shop),
-      } as NearbyStore;
-    })
-    .filter(Boolean) as NearbyStore[];
+function openNearbySearch({ lat, lon }: LatLng) {
+  window.open(
+    `https://www.google.com/maps/search/grocery/@${lat},${lon},14z`,
+    '_blank',
+    'noopener,noreferrer'
+  );
+}
+
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>'"]/g, (character) => {
+    const entities: Record<string, string> = {
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      "'": '&#39;',
+      '"': '&quot;',
+    };
+    return entities[character];
+  });
 }
 
 // --------------------------------------------------------
@@ -151,6 +175,8 @@ export const NearbyStoresScreen: React.FC<NearbyStoresScreenProps> = ({
   const lang = (language || 'en') as LanguageType;
 
   const [userPos, setUserPos] = useState<LatLng | null>(null);
+  const [locationSource, setLocationSource] = useState<LocationSource | null>(null);
+  const [positionAccuracy, setPositionAccuracy] = useState<number | null>(null);
   const [status, setStatus] = useState<'idle' | 'locating' | 'searching' | 'ready' | 'error' | 'denied'>('idle');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [stores, setStores] = useState<NearbyStore[]>([]);
@@ -165,6 +191,8 @@ export const NearbyStoresScreen: React.FC<NearbyStoresScreenProps> = ({
   const mapRef = useRef<HTMLDivElement | null>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const markersLayerRef = useRef<L.LayerGroup | null>(null);
+  const locationRequestRef = useRef(0);
+  const storesAbortRef = useRef<AbortController | null>(null);
 
   // Ingredients you need: combine shopping list + missing from recipes (unique)
   const neededIngredients = useMemo(() => {
@@ -196,63 +224,118 @@ export const NearbyStoresScreen: React.FC<NearbyStoresScreenProps> = ({
     return found?.category || 'Pantry & Other';
   };
 
+  // Recalculate from the latest device fix (or manually searched point) instead
+  // of keeping the distance from the original response. This corrects values
+  // immediately when the browser refines a coarse location.
+  const storesByDistance = useMemo(() => {
+    if (!userPos) return stores;
+    return stores
+      .map((store) => ({
+        ...store,
+        distanceMeters: Math.round(haversine(userPos, { lat: store.lat, lon: store.lon })),
+      }))
+      .sort((a, b) => a.distanceMeters - b.distanceMeters);
+  }, [stores, userPos]);
+
   // Filter stores by ingredient category
   const filteredStores = useMemo(() => {
-    if (ingredientFilter === 'all') return stores;
+    if (ingredientFilter === 'all') return storesByDistance;
     const cat = neededCategoryOf(ingredientFilter);
-    return stores.filter(s => s.categoriesCovered.includes(cat) || s.categoriesCovered.includes('Pantry & Other') && cat === 'Pantry & Other' || s.shop === 'supermarket' || s.shop === 'grocery');
-  }, [stores, ingredientFilter, neededIngredients]);
+    return storesByDistance.filter(s => s.categoriesCovered.includes(cat) || s.categoriesCovered.includes('Pantry & Other') && cat === 'Pantry & Other' || s.shop === 'supermarket' || s.shop === 'grocery');
+  }, [storesByDistance, ingredientFilter, neededIngredients]);
 
   const selectedStore = filteredStores.find(s => s.id === selectedStoreId) || null;
 
   // ---------------- Geolocation ----------------
   const requestLocation = () => {
-    if (!navigator.geolocation) {
-      setErrorMsg(lang === 'fr' ? 'Géolocalisation non supportée' : lang === 'ar-MA' ? 'الموقع غير مدعوم' : 'Geolocation not supported');
-      setStatus('error');
-      // fallback Casablanca
-      const fallback = { lat: 33.5731, lon: -7.5898 };
-      setUserPos(fallback);
-      fetchStores(fallback, radius);
-      return;
-    }
+    const requestId = ++locationRequestRef.current;
+    const hadUsableLocation = Boolean(userPos);
+    storesAbortRef.current?.abort();
+
     setStatus('locating');
     setErrorMsg(null);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const p = { lat: pos.coords.latitude, lon: pos.coords.longitude };
-        setUserPos(p);
-        fetchStores(p, radius);
-      },
-      (err) => {
-        console.warn('Geolocation error', err);
-        if (err.code === 1) {
-          setStatus('denied');
-          setErrorMsg(
-            lang === 'fr'
-              ? 'Accès à la localisation refusé. Autorisez-la ou cherchez une ville.'
-              : lang === 'ar-MA'
-              ? 'تم رفض الوصول للموقع. اسمح به أو ابحث عن مدينة.'
-              : 'Location access denied. Allow it or search a city.'
+
+    const failLocation = (permissionDenied: boolean) => {
+      if (requestId !== locationRequestRef.current) return;
+      setStatus(hadUsableLocation ? 'ready' : permissionDenied ? 'denied' : 'error');
+      setErrorMsg(t(permissionDenied ? 'mapPermissionDenied' : 'mapLocationUnavailable', lang));
+    };
+
+    if (!window.isSecureContext) {
+      setStatus(hadUsableLocation ? 'ready' : 'error');
+      setErrorMsg(t('mapHttpsRequired', lang));
+      return;
+    }
+
+    if (!navigator.geolocation) {
+      failLocation(false);
+      return;
+    }
+
+    const acceptLocation = (position: GeolocationPosition) => {
+      if (requestId !== locationRequestRef.current) return;
+      const nextPosition = {
+        lat: position.coords.latitude,
+        lon: position.coords.longitude,
+      };
+      if (!Number.isFinite(nextPosition.lat) || !Number.isFinite(nextPosition.lon)) {
+        failLocation(false);
+        return;
+      }
+
+      setUserPos(nextPosition);
+      setLocationSource('device');
+      setPositionAccuracy(
+        Number.isFinite(position.coords.accuracy) ? Math.round(position.coords.accuracy) : null
+      );
+      setManualQuery('');
+      void fetchStores(nextPosition, radius);
+    };
+
+    try {
+      // Get a normal fix first because it is much faster and more reliable on
+      // laptops. If its accuracy is broad, quietly ask the device for a GPS
+      // refinement without making the user wait on a blank map.
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          acceptLocation(position);
+          if (position.coords.accuracy <= 50) return;
+
+          navigator.geolocation.getCurrentPosition(
+            (refinedPosition) => {
+              if (requestId !== locationRequestRef.current) return;
+              if (refinedPosition.coords.accuracy >= position.coords.accuracy) return;
+
+              const initial = { lat: position.coords.latitude, lon: position.coords.longitude };
+              const refined = {
+                lat: refinedPosition.coords.latitude,
+                lon: refinedPosition.coords.longitude,
+              };
+              setUserPos(refined);
+              setPositionAccuracy(Math.round(refinedPosition.coords.accuracy));
+
+              // A materially different fix needs fresh distances and results.
+              if (haversine(initial, refined) > 100) void fetchStores(refined, radius);
+            },
+            () => undefined,
+            { enableHighAccuracy: true, timeout: 12_000, maximumAge: 0 }
           );
-          // still fallback to Casablanca for demo
-          const fallback = { lat: 33.5731, lon: -7.5898 };
-          setUserPos(fallback);
-          fetchStores(fallback, radius);
-        } else {
-          setStatus('error');
-          setErrorMsg(err.message);
-          const fallback = { lat: 33.5731, lon: -7.5898 };
-          setUserPos(fallback);
-          fetchStores(fallback, radius);
-        }
-      },
-      { enableHighAccuracy: true, timeout: 12000, maximumAge: 30000 }
-    );
+        },
+        (error) => failLocation(error.code === 1),
+        { enableHighAccuracy: false, timeout: 15_000, maximumAge: 30_000 }
+      );
+    } catch {
+      failLocation(false);
+    }
   };
 
   useEffect(() => {
     requestLocation();
+    return () => {
+      locationRequestRef.current += 1;
+      storesAbortRef.current?.abort();
+    };
+    // request once when this screen is mounted; the button can request again
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -262,118 +345,134 @@ export const NearbyStoresScreen: React.FC<NearbyStoresScreenProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [radius]);
 
-  // Manual search via Nominatim
+  // Manual area search is a fallback when device location is unavailable.
   const handleManualSearch = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    const q = manualQuery.trim();
-    if (!q) return;
+    const query = manualQuery.trim();
+    if (!query) return;
+
+    const requestId = ++locationRequestRef.current;
+    storesAbortRef.current?.abort();
     setSearchingManual(true);
     setErrorMsg(null);
     try {
-      const res = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=1&addressdetails=1`,
-        { headers: { Accept: 'application/json' } }
-      );
-      const data = await res.json();
-      if (!data || data.length === 0) {
+      const response = await fetch('/api/geocode', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query, language: lang }),
+      });
+      const data = (await response.json()) as {
+        success?: boolean;
+        location?: LatLng & { label?: string };
+        error?: string;
+      };
+      if (!response.ok) throw new Error(data.error || 'Location search failed');
+      if (requestId !== locationRequestRef.current) return;
+      if (!data.location) {
         setErrorMsg(
           lang === 'fr' ? 'Aucun lieu trouvé.' : lang === 'ar-MA' ? 'لم يتم العثور على مكان.' : 'No place found.'
         );
         return;
       }
-      const first = data[0];
-      const p = { lat: parseFloat(first.lat), lon: parseFloat(first.lon) };
-      setUserPos(p);
-      setStatus('searching');
-      fetchStores(p, radius);
-    } catch (err) {
-      console.error(err);
-      setErrorMsg('Search failed. Try again.');
+
+      const nextPosition = { lat: data.location.lat, lon: data.location.lon };
+      setUserPos(nextPosition);
+      setLocationSource('search');
+      setPositionAccuracy(null);
+      await fetchStores(nextPosition, radius);
+    } catch (error) {
+      console.error('Location search failed', error);
+      if (requestId === locationRequestRef.current) {
+        setErrorMsg(lang === 'fr' ? 'La recherche a échoué. Réessayez.' : 'Search failed. Try again.');
+        if (!userPos) setStatus('error');
+      }
     } finally {
       setSearchingManual(false);
     }
   };
 
-  // ---------------- Fetch stores via Overpass ----------------
+  // ---------------- Fetch real stores through our same-origin API ----------------
   const fetchStores = async (center: LatLng, rad: number) => {
+    storesAbortRef.current?.abort();
+    const controller = new AbortController();
+    storesAbortRef.current = controller;
+
     setStatus('searching');
     setErrorMsg(null);
-    try {
-      // Build Overpass QL
-      const query = `
-[out:json][timeout:25];
-(
-  nwr["shop"~"supermarket|grocery|convenience|greengrocer|bakery|butcher|deli|general"](around:${rad},${center.lat},${center.lon});
-  nwr["amenity"~"marketplace"](around:${rad},${center.lat},${center.lon});
-  nwr["shop"="supermarket"](around:${rad},${center.lat},${center.lon});
-);
-out center 60;
-`;
-      const res = await fetch('https://overpass-api.de/api/interpreter', {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
-        body: query,
-      });
-      if (!res.ok) throw new Error(`Overpass ${res.status}`);
-      const json = await res.json();
-      const elements = json.elements || [];
+    setStores([]);
+    setSelectedStoreId(null);
 
-      const parsed: NearbyStore[] = elements
-        .map((el: any) => {
-          const lat = el.lat ?? el.center?.lat;
-          const lon = el.lon ?? el.center?.lon;
-          if (lat == null || lon == null) return null;
-          const tags = el.tags || {};
-          const shop = (tags.shop || tags.amenity || 'shop').toLowerCase();
-          // filter out weird
-          const name = tags.name || (shop ? `${shopLabel(shop, tags.amenity, lang)}` : 'Store') ;
-          // if no name, make one
-          const displayName = tags.name || `${shopLabel(shop, tags.amenity, lang)} • ${tags['addr:street'] || ''}`.trim() || 'Store';
-          const addrParts = [tags['addr:street'], tags['addr:housenumber'], tags['addr:city']].filter(Boolean);
-          const address = addrParts.join(', ') || tags['addr:full'] || tags['addr:place'] || undefined;
-          const distance = haversine(center, { lat, lon });
+    try {
+      const response = await fetch('/api/nearby-stores', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lat: center.lat, lon: center.lon, radius: rad }),
+        signal: controller.signal,
+      });
+      const data = (await response.json()) as {
+        success?: boolean;
+        elements?: StoreProviderElement[];
+        error?: string;
+      };
+      if (!response.ok) throw new Error(data.error || `Store search returned ${response.status}`);
+      if (controller.signal.aborted) return;
+
+      const elements = Array.isArray(data.elements) ? data.elements : [];
+      const parsed = elements
+        .map((element): NearbyStore | null => {
+          const storeLat = Number(element.lat ?? element.center?.lat);
+          const storeLon = Number(element.lon ?? element.center?.lon);
+          if (!Number.isFinite(storeLat) || !Number.isFinite(storeLon)) return null;
+
+          const tags = element.tags && typeof element.tags === 'object' ? element.tags : {};
+          const street = tags['addr:street'] || '';
+          const knownName = tags.name || tags.brand || tags.operator || '';
+          const featuredMarket = isFeaturedMarket(tags, knownName);
+          // Some chain branches are missing a shop tag in OSM. Their verified
+          // brand/name still identifies them as a supermarket.
+          const shop = (tags.shop || (featuredMarket ? 'supermarket' : tags.amenity) || 'shop').toLowerCase();
+          const displayName = knownName || `${shopLabel(shop, tags.amenity, lang)}${street ? ` · ${street}` : ''}`;
+          const addressParts = [street, tags['addr:housenumber'], tags['addr:city']].filter(Boolean);
+          const address = addressParts.join(', ') || tags['addr:full'] || tags['addr:place'] || undefined;
+
           return {
-            id: String(el.id),
-            name: tags.name || displayName,
-            lat,
-            lon,
+            id: `${element.type || 'place'}-${String(element.id ?? `${storeLat}-${storeLon}`)}`,
+            name: displayName,
+            lat: storeLat,
+            lon: storeLon,
             shop,
             amenity: tags.amenity,
             address,
-            distanceMeters: Math.round(distance),
+            distanceMeters: Math.round(haversine(center, { lat: storeLat, lon: storeLon })),
             tags,
             categoriesCovered: shopToCategories(shop, tags.amenity),
-          } as NearbyStore;
+            isFeaturedMarket: featuredMarket,
+          };
         })
-        .filter(Boolean)
-        .sort((a: NearbyStore, b: NearbyStore) => a.distanceMeters - b.distanceMeters)
-        .slice(0, 80) as NearbyStore[];
+        .filter((store): store is NearbyStore => store !== null)
+        .sort((a, b) => a.distanceMeters - b.distanceMeters);
 
-      if (parsed.length === 0) {
-        // fallback to mock
-        const mocks = generateMockStores(center, rad, lang).sort((a, b) => a.distanceMeters - b.distanceMeters);
-        setStores(mocks);
-        setStatus('ready');
-        if (mocks.length) setSelectedStoreId(mocks[0].id);
-        return;
-      }
+      // Keep the map readable while guaranteeing that requested chains are not
+      // dropped when an area contains more than 80 small shops.
+      const featured = parsed.filter((store) => store.isFeaturedMarket);
+      const visibleStores = Array.from(
+        new Map([...featured, ...parsed].map((store) => [store.id, store])).values()
+      )
+        .slice(0, 80)
+        .sort((a, b) => a.distanceMeters - b.distanceMeters);
 
-      setStores(parsed);
-      setSelectedStoreId(parsed[0]?.id || null);
+      setStores(visibleStores);
+      setSelectedStoreId(visibleStores[0]?.id || null);
       setStatus('ready');
-    } catch (err) {
-      console.error('Overpass fetch failed', err);
-      const mocks = generateMockStores(center, rad, lang).sort((a, b) => a.distanceMeters - b.distanceMeters);
-      setStores(mocks);
-      setSelectedStoreId(mocks[0]?.id || null);
-      setStatus('ready');
-      setErrorMsg(
-        lang === 'fr'
-          ? 'Réseau Overpass occupé — affichage de résultats exemple autour de vous.'
-          : lang === 'ar-MA'
-          ? 'شبكة المتاجر مشغولة — كنعرضو نتائج تجريبية قريبة ليك.'
-          : 'Store network busy — showing demo results near you.'
-      );
+    } catch (error) {
+      if (controller.signal.aborted) return;
+      console.error('Nearby store search failed', error);
+      setStores([]);
+      setSelectedStoreId(null);
+      setStatus('error');
+      setErrorMsg(t('mapStoreLoadError', lang));
+    } finally {
+      if (storesAbortRef.current === controller) storesAbortRef.current = null;
     }
   };
 
@@ -406,13 +505,20 @@ out center 60;
     mapInstanceRef.current = map;
 
     // slight delay to ensure tiles load then invalidate
-    setTimeout(() => map.invalidateSize(), 200);
+    const invalidateTimeout = window.setTimeout(() => map.invalidateSize(), 200);
 
     return () => {
+      window.clearTimeout(invalidateTimeout);
       try { map.remove(); } catch {}
       mapInstanceRef.current = null;
     };
   }, [userPos]);
+
+  useEffect(() => {
+    if (viewMode !== 'map' || !mapInstanceRef.current) return;
+    const timeout = window.setTimeout(() => mapInstanceRef.current?.invalidateSize(), 50);
+    return () => window.clearTimeout(timeout);
+  }, [viewMode]);
 
   // Update markers when filteredStores or userPos or selection changes
   useEffect(() => {
@@ -436,18 +542,22 @@ out center 60;
     L.marker([userPos.lat, userPos.lon], { icon: userIcon, zIndexOffset: 1000 })
       .addTo(layer)
       .bindPopup(
-        `<div style="font-family:Inter,sans-serif; font-size:12px; font-weight:700; color:#0B3D2E;">${lang === 'fr' ? 'Vous êtes ici' : lang === 'ar-MA' ? 'أنت هنا' : 'You are here'}</div>`
+        `<div style="font-family:Inter,sans-serif; font-size:12px; font-weight:700; color:#0B3D2E;">${escapeHtml(
+          t(locationSource === 'device' ? 'mapCurrentLocation' : 'mapSearchedArea', lang)
+        )}</div>`
       );
 
-    // Accuracy circle
-    L.circle([userPos.lat, userPos.lon], {
-      radius: Math.min(radius * 0.18, 300),
-      color: '#22c55e',
-      fillColor: '#22c55e',
-      fillOpacity: 0.08,
-      weight: 1,
-      opacity: 0.35,
-    }).addTo(layer);
+    // Show the accuracy reported by the device, not an invented search circle.
+    if (locationSource === 'device' && positionAccuracy !== null) {
+      L.circle([userPos.lat, userPos.lon], {
+        radius: Math.max(10, Math.min(positionAccuracy, 1000)),
+        color: '#22c55e',
+        fillColor: '#22c55e',
+        fillOpacity: 0.08,
+        weight: 1,
+        opacity: 0.35,
+      }).addTo(layer);
+    }
 
     // Store markers
     filteredStores.forEach((store) => {
@@ -484,9 +594,10 @@ out center 60;
       });
       const popupHtml = `
         <div style="font-family:Inter,system-ui,sans-serif; min-width:180px;">
-          <div style="font-size:13px; font-weight:800; color:#0B3D2E; line-height:1.2;">${store.name}</div>
-          <div style="font-size:11px; font-weight:600; color:#16a34a; text-transform:uppercase; letter-spacing:0.06em; margin-top:2px;">${shopLabel(store.shop, store.amenity, lang)} · ${formatDistance(store.distanceMeters)}</div>
-          ${store.address ? `<div style="font-size:11px; color:#475569; margin-top:4px;">${store.address}</div>` : ''}
+          <div style="font-size:13px; font-weight:800; color:#0B3D2E; line-height:1.2;">${escapeHtml(store.name)}</div>
+          <div style="font-size:11px; font-weight:600; color:#16a34a; text-transform:uppercase; letter-spacing:0.06em; margin-top:2px;">${escapeHtml(shopLabel(store.shop, store.amenity, lang))} · ${escapeHtml(formatStoreDistance(store.distanceMeters, locationSource, lang))}</div>
+          ${store.isFeaturedMarket ? `<div style="display:inline-block; font-size:9px; font-weight:800; color:#0B3D2E; background:#dcfce7; padding:2px 6px; border-radius:999px; margin-top:5px;">${escapeHtml(t('mapChainMarket', lang))}</div>` : ''}
+          ${store.address ? `<div style="font-size:11px; color:#475569; margin-top:4px;">${escapeHtml(store.address)}</div>` : ''}
           <div style="margin-top:6px; display:flex; flex-wrap:wrap; gap:4px;">
             ${store.categoriesCovered.slice(0,3).map(c => `<span style="font-size:10px; font-weight:800; background:#e8f7ef; color:#0B3D2E; border:1px solid #bbf7d0; padding:2px 6px; border-radius:999px;">${getLocalizedCategory(c, lang)}</span>`).join('')}
           </div>
@@ -512,7 +623,7 @@ out center 60;
     } else {
       map.setView([userPos.lat, userPos.lon], 14);
     }
-  }, [filteredStores, userPos, selectedStoreId, lang, radius]);
+  }, [filteredStores, userPos, selectedStoreId, lang, locationSource, positionAccuracy]);
 
   // When selected store changes, pan map
   useEffect(() => {
@@ -521,7 +632,8 @@ out center 60;
   }, [selectedStoreId]);
 
   const unboughtCount = shoppingList.filter(s => !s.isBought).length;
-  const isLoading = status === 'locating' || status === 'searching';
+  const isLocating = status === 'locating';
+  const isLoading = isLocating || status === 'searching';
 
   return (
     <div className="space-y-4 pb-20 max-w-6xl mx-auto">
@@ -562,10 +674,11 @@ out center 60;
           <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={requestLocation}
-              className="inline-flex items-center gap-2 rounded-full bg-pine px-4 py-2.5 text-xs font-black uppercase tracking-widest text-cold hover:bg-pine-light transition-colors shadow-sm"
+              disabled={isLocating}
+              className="inline-flex items-center gap-2 rounded-full bg-pine px-4 py-2.5 text-xs font-black uppercase tracking-widest text-cold hover:bg-pine-light transition-colors shadow-sm disabled:cursor-wait disabled:opacity-70"
             >
-              {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <LocateFixed className="w-4 h-4" />}
-              {lang === 'fr' ? 'Me localiser' : lang === 'ar-MA' ? 'حدد موقعي' : 'Locate me'}
+              {isLocating ? <Loader2 className="w-4 h-4 animate-spin" /> : <LocateFixed className="w-4 h-4" />}
+              {t('mapUseCurrentLocation', lang)}
             </button>
           </div>
         </div>
@@ -597,6 +710,7 @@ out center 60;
               { v: 1000, l: '1 km' },
               { v: 2500, l: '2.5 km' },
               { v: 5000, l: '5 km' },
+              { v: 10000, l: '10 km' },
             ].map((r) => (
               <button
                 key={r.v}
@@ -608,6 +722,10 @@ out center 60;
             ))}
           </div>
         </div>
+        <p className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500">
+          <LocateFixed className="h-3.5 w-3.5 text-cold-dark" />
+          {t('mapLocationPrivacy', lang)}
+        </p>
 
         {/* Ingredient filter chips */}
         {neededIngredients.length > 0 && (
@@ -659,26 +777,47 @@ out center 60;
         {errorMsg && (
           <div className="flex items-start gap-2 rounded-2xl bg-amber-50 border border-amber-200 px-3.5 py-2.5">
             <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
-            <p className="text-xs font-medium text-amber-900 leading-relaxed">{errorMsg}</p>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-medium text-amber-900 leading-relaxed">{errorMsg}</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {!userPos ? (
+                  <button onClick={requestLocation} className="rounded-full bg-pine px-3 py-1.5 text-[11px] font-black text-cold">
+                    {t('mapTryAgain', lang)}
+                  </button>
+                ) : status === 'error' ? (
+                  <>
+                    <button onClick={() => void fetchStores(userPos, radius)} className="rounded-full bg-pine px-3 py-1.5 text-[11px] font-black text-cold">
+                      {t('mapTryAgain', lang)}
+                    </button>
+                    <button onClick={() => openNearbySearch(userPos)} className="rounded-full bg-white px-3 py-1.5 text-[11px] font-black text-amber-900 ring-1 ring-amber-300">
+                      {t('mapOpenExternal', lang)}
+                    </button>
+                  </>
+                ) : null}
+              </div>
+            </div>
           </div>
         )}
 
         {userPos && (
           <div className="flex flex-wrap items-center gap-2 text-xs">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-50 border border-slate-200 px-2.5 py-1 font-medium text-slate-700">
-              <MapPin className="w-3 h-3 text-cold-dark" />
-              {userPos.lat.toFixed(4)}, {userPos.lon.toFixed(4)}
-              <button onClick={() => openInOSM(userPos.lat, userPos.lon)} className="ml-1 text-cold-dark hover:underline inline-flex items-center gap-0.5">
-                OSM <ExternalLink className="w-3 h-3" />
-              </button>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-mint border border-cold/20 px-2.5 py-1 font-black text-pine text-[11px]">
+              <LocateFixed className="w-3 h-3 text-cold-dark" />
+              {t(locationSource === 'device' ? 'mapCurrentLocation' : 'mapSearchedArea', lang)}
+              {locationSource === 'device' && positionAccuracy !== null && (
+                <span className="font-bold text-pine/65">· ±{formatDistance(positionAccuracy)}</span>
+              )}
             </span>
-            <span className="inline-flex items-center gap-1 rounded-full bg-mint border border-cold/20 px-2.5 py-1 font-black text-pine text-[11px]">
-              <Store className="w-3 h-3" />
+            <span className="inline-flex items-center gap-1 rounded-full bg-slate-50 border border-slate-200 px-2.5 py-1 font-bold text-slate-700 text-[11px]">
+              <Store className="w-3 h-3 text-cold-dark" />
               {filteredStores.length} {lang === 'fr' ? 'magasins' : lang === 'ar-MA' ? 'محل' : 'stores'} · {radius >= 1000 ? `${radius / 1000} km` : `${radius} m`}
             </span>
-            {status === 'denied' && (
-              <span className="text-[11px] font-bold text-amber-700">· {lang === 'fr' ? 'Position approximative' : 'Approximate position'}</span>
-            )}
+            <button onClick={() => openInOSM(userPos.lat, userPos.lon)} className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-bold text-cold-dark hover:bg-mint">
+              OSM <ExternalLink className="w-3 h-3" />
+            </button>
+            <p className="basis-full text-[11px] font-medium leading-relaxed text-slate-500">
+              {t('mapDistanceNote', lang)}
+            </p>
           </div>
         )}
       </div>
@@ -732,8 +871,22 @@ out center 60;
               </div>
             )}
 
+            {/* Location permission gate. We never substitute a fake city. */}
+            {!isLoading && !userPos && (
+              <div className="absolute inset-0 bg-white/90 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center">
+                <div className="w-14 h-14 rounded-2xl bg-mint text-pine flex items-center justify-center ring-1 ring-cold/20">
+                  <LocateFixed className="w-7 h-7" />
+                </div>
+                <h3 className="mt-3 font-black text-slate-900">{t('mapLocationNeeded', lang)}</h3>
+                <p className="mt-1 text-sm text-slate-600 max-w-sm">{t('mapLocationNeededDesc', lang)}</p>
+                <button onClick={requestLocation} className="mt-4 inline-flex items-center gap-2 rounded-full bg-pine px-4 py-2.5 text-xs font-black uppercase tracking-wider text-cold">
+                  <LocateFixed className="h-4 w-4" /> {t('mapUseCurrentLocation', lang)}
+                </button>
+              </div>
+            )}
+
             {/* Empty overlay */}
-            {!isLoading && filteredStores.length === 0 && userPos && (
+            {status === 'ready' && filteredStores.length === 0 && userPos && (
               <div className="absolute inset-0 bg-white/85 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center">
                 <div className="w-14 h-14 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center">
                   <Store className="w-7 h-7" />
@@ -748,26 +901,37 @@ out center 60;
                     ? 'جرب تكبر نطاق البحث أو قلب على مدينة أخرى.'
                     : 'Try a larger radius or search another area.'}
                 </p>
-                <button onClick={() => setRadius(5000)} className="mt-4 px-4 py-2 rounded-full bg-pine text-cold font-bold text-xs">
-                  {lang === 'fr' ? 'Élargir à 5 km' : 'Expand to 5 km'}
-                </button>
+                <div className="mt-4 flex flex-wrap justify-center gap-2">
+                  {radius < 10000 && (
+                    <button onClick={() => setRadius(radius < 5000 ? 5000 : 10000)} className="px-4 py-2 rounded-full bg-pine text-cold font-bold text-xs">
+                      {lang === 'fr'
+                        ? `Élargir à ${radius < 5000 ? 5 : 10} km`
+                        : `Expand to ${radius < 5000 ? 5 : 10} km`}
+                    </button>
+                  )}
+                  <button onClick={() => openNearbySearch(userPos)} className="px-4 py-2 rounded-full bg-white text-pine font-bold text-xs ring-1 ring-slate-200">
+                    {t('mapOpenExternal', lang)}
+                  </button>
+                </div>
               </div>
             )}
 
             {/* Map legend floating */}
-            <div className="absolute left-3 bottom-3 bg-white/95 backdrop-blur rounded-2xl border border-slate-200 shadow-md px-3 py-2.5 hidden sm:flex items-center gap-3">
-              <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-slate-700">
-                <span className="w-3 h-3 rounded-full bg-cold border-2 border-white shadow" /> Supermarket
-              </span>
-              <span className="w-px h-4 bg-slate-200" />
-              <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-slate-700">
-                <span className="w-3 h-3 rounded-lg bg-white border border-slate-200 shadow-sm flex items-center justify-center text-[10px]">🏪</span> Shop
-              </span>
-              <span className="w-px h-4 bg-slate-200" />
-              <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-slate-700">
-                <span className="w-3 h-3 rounded-full bg-pine border-2 border-white shadow" /> You
-              </span>
-            </div>
+            {userPos && !isLoading && filteredStores.length > 0 && (
+              <div className="absolute left-3 bottom-3 bg-white/95 backdrop-blur rounded-2xl border border-slate-200 shadow-md px-3 py-2.5 hidden sm:flex items-center gap-3">
+                <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-slate-700">
+                  <span className="w-3 h-3 rounded-full bg-cold border-2 border-white shadow" /> Supermarket
+                </span>
+                <span className="w-px h-4 bg-slate-200" />
+                <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-slate-700">
+                  <span className="w-3 h-3 rounded-lg bg-white border border-slate-200 shadow-sm flex items-center justify-center text-[10px]">🏪</span> Shop
+                </span>
+                <span className="w-px h-4 bg-slate-200" />
+                <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-slate-700">
+                  <span className="w-3 h-3 rounded-full bg-pine border-2 border-white shadow" /> You
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Mobile list toggle bar */}
@@ -827,15 +991,22 @@ out center 60;
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
-                        <div className={`text-sm font-black leading-tight truncate ${isSelected ? 'text-white' : 'text-slate-900'}`}>
-                          {store.name}
+                        <div className="flex min-w-0 items-center gap-1.5">
+                          <div className={`min-w-0 truncate text-sm font-black leading-tight ${isSelected ? 'text-white' : 'text-slate-900'}`}>
+                            {store.name}
+                          </div>
+                          {store.isFeaturedMarket && (
+                            <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide ${isSelected ? 'bg-cold text-pine-deep' : 'bg-emerald-100 text-emerald-800'}`}>
+                              {t('mapChainMarket', lang)}
+                            </span>
+                          )}
                         </div>
-                        <div className={`text-[11px] font-bold uppercase tracking-widest flex items-center gap-1.5 mt-0.5 ${isSelected ? 'text-cold-soft' : 'text-cold-dark'}`}>
+                        <div className={`text-[11px] font-bold uppercase tracking-widest flex flex-wrap items-center gap-1.5 mt-0.5 ${isSelected ? 'text-cold-soft' : 'text-cold-dark'}`}>
                           <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-black ${isSelected ? 'bg-white/15 text-white' : 'bg-mint text-pine border border-cold/20'}`}>
                             {shopLabel(store.shop, store.amenity, lang)}
                           </span>
-                          <span className="flex items-center gap-1">
-                            <Clock3 className="w-3 h-3" /> {formatDistance(store.distanceMeters)}
+                          <span className="flex items-center gap-1 normal-case tracking-normal">
+                            <NavigationIcon className="w-3 h-3" /> {formatStoreDistance(store.distanceMeters, locationSource, lang)}
                           </span>
                         </div>
                         {store.address && (
@@ -941,7 +1112,7 @@ out center 60;
             </div>
             <div className="min-w-0 flex-1">
               <div className="text-sm font-black text-slate-900 truncate">{selectedStore.name}</div>
-              <div className="text-xs font-bold text-cold-dark uppercase tracking-widest">{shopLabel(selectedStore.shop, selectedStore.amenity, lang)} · {formatDistance(selectedStore.distanceMeters)}</div>
+              <div className="text-xs font-bold text-cold-dark">{shopLabel(selectedStore.shop, selectedStore.amenity, lang)} · {formatStoreDistance(selectedStore.distanceMeters, locationSource, lang)}</div>
             </div>
             <button onClick={() => openDirections(selectedStore.lat, selectedStore.lon, selectedStore.name)} className="shrink-0 w-10 h-10 rounded-xl bg-cold text-pine-deep flex items-center justify-center">
               <NavigationIcon className="w-5 h-5" />

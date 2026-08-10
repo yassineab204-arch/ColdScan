@@ -58,6 +58,8 @@ api/
   scan-fridge.ts              # POST, vision analysis of a fridge photo
   generate-recipes.ts         # POST, recipes from inventory
   generate-shopping-list.ts   # POST, costed shopping list (MAD default)
+  geocode.ts                  # POST, manual map-area geocoding via Nominatim
+  nearby-stores.ts            # POST, nearby real food shops via Overpass
   ai-chat.ts                  # POST, text assistant (JSON: reply + detectedLanguage)
   recipe-voice-bot.ts         # POST, cooking sous-chef turns + step/timer actions
   tts.ts                      # POST, speech synthesis WAV
