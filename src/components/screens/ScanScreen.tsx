@@ -235,7 +235,7 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({
       </div>
 
       {/* Camera / Image Container */}
-      <div className="bg-slate-900 rounded-3xl overflow-hidden shadow-lg border-4 border-emerald-500/30 min-h-[280px] relative flex flex-col items-center justify-center text-white p-3">
+      <div className="bg-pine-deep rounded-3xl overflow-hidden shadow-lg border-4 border-cold/30 min-h-[280px] relative flex flex-col items-center justify-center text-white p-3">
         {isLiveCameraActive ? (
           <div className="relative w-full h-full flex flex-col items-center justify-center">
             <video
@@ -247,7 +247,7 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({
             <div className="absolute bottom-3 flex items-center gap-3">
               <button
                 onClick={captureFrame}
-                className="px-6 py-2.5 rounded-full bg-emerald-500 text-slate-900 font-black text-xs uppercase tracking-widest shadow-lg flex items-center gap-2 hover:bg-emerald-400 transition-all active:scale-95"
+                className="px-6 py-2.5 rounded-full bg-cold text-pine-deep font-black text-xs uppercase tracking-widest shadow-lg flex items-center gap-2 hover:bg-cold/90 transition-all active:scale-95"
               >
                 <Camera className="w-4 h-4" />
                 {t('capturePhoto', lang)}
@@ -271,7 +271,7 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({
           </div>
         ) : (
           <div className="py-10 px-4 text-center space-y-4">
-            <div className="w-16 h-16 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto border-2 border-emerald-400">
+            <div className="w-16 h-16 rounded-full bg-cold/15 text-cold flex items-center justify-center mx-auto border-2 border-cold/60">
               <Camera className="w-8 h-8 stroke-[2.5]" />
             </div>
             <div>
@@ -284,7 +284,7 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({
             <div className="flex flex-col sm:flex-row items-center justify-center gap-2.5 pt-2">
               <button
                 onClick={startCamera}
-                className="w-full sm:w-auto justify-center px-4 py-3 rounded-2xl bg-emerald-500 text-slate-900 font-black text-xs uppercase tracking-widest flex items-center gap-1.5 shadow-md hover:bg-emerald-400 hover:scale-105 active:scale-95 transition-all duration-200 hover:shadow-emerald-500/30"
+                className="w-full sm:w-auto justify-center px-4 py-3 rounded-2xl bg-cold text-pine-deep font-black text-xs uppercase tracking-widest flex items-center gap-1.5 shadow-md hover:bg-cold/90 hover:scale-105 active:scale-95 transition-all duration-200 hover:shadow-cold/40"
               >
                 <Camera className="w-4 h-4" />
                 {t('liveCamera', lang)}
@@ -314,7 +314,7 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({
         <button
           onClick={runAIScan}
           disabled={isScanning}
-          className="w-full py-3.5 px-5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-bold text-sm shadow-lg shadow-emerald-200 flex items-center justify-center gap-2 hover:opacity-95 active:scale-98 transition-all disabled:opacity-50"
+          className="w-full py-3.5 px-5 rounded-2xl bg-cold text-pine-deep font-bold text-sm shadow-[0_16px_36px_-12px_rgba(34,197,94,0.7)] flex items-center justify-center gap-2 hover:bg-cold-dark hover:text-white active:scale-[0.98] transition-all disabled:opacity-50"
         >
           {isScanning ? (
             <>
@@ -341,7 +341,7 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({
               <button
                 key={sample.id}
                 onClick={() => handleSelectSample(sample)}
-                className="group p-2 bg-white border border-slate-200/80 rounded-2xl text-left hover:border-emerald-500 transition-all shadow-xs"
+                className="group p-2 bg-white border border-slate-200/80 rounded-2xl text-left hover:border-cold transition-all shadow-xs"
               >
                 <img
                   src={sample.thumbnail}
@@ -358,10 +358,10 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({
 
       {/* Scan Results Confirmation Screen */}
       {scanResult && (
-        <div className="bg-white border border-emerald-200 rounded-3xl p-5 shadow-lg space-y-4 animate-in slide-in-from-bottom duration-300">
+        <div className="bg-white border border-cold/30 rounded-3xl p-5 shadow-lg space-y-4 animate-in slide-in-from-bottom duration-300">
           <div className="flex items-center justify-between pb-3 border-b border-slate-100">
             <div>
-              <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-full">
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-pine bg-mint px-2.5 py-0.5 rounded-full ring-1 ring-cold/25">
                 {t('aiDetectionComplete', lang)}
               </span>
               <h3 className="font-bold text-slate-800 text-base mt-1">
@@ -397,7 +397,7 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({
                     {t('category', lang)}: {item.category} • {t('location', lang)}: {item.locationInFridge}
                   </div>
                   {item.notes && (
-                    <div className="text-[10px] text-emerald-700">{item.notes}</div>
+                    <div className="text-[10px] text-cold-dark font-semibold">{item.notes}</div>
                   )}
                 </div>
 
@@ -409,8 +409,8 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({
                     </span>
                   )}
                   {item.freshness === 'fresh' && (
-                    <span className="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 font-bold text-[10px] border border-emerald-200 flex items-center gap-1">
-                      <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                    <span className="px-2.5 py-1 rounded-full bg-mint text-pine font-bold text-[10px] border border-cold/25 flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3 text-cold-dark" />
                       {t('fresh', lang)} ({item.daysRemaining}d)
                     </span>
                   )}
@@ -427,7 +427,7 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({
           <div className="pt-2 flex items-center gap-3">
             <button
               onClick={handleConfirmAndSave}
-              className="w-full py-3 px-4 rounded-2xl bg-emerald-600 text-white font-bold text-sm shadow-md shadow-emerald-200 hover:bg-emerald-700 transition-all flex items-center justify-center gap-2 active:scale-98"
+              className="w-full py-3 px-4 rounded-2xl bg-cold text-pine-deep font-bold text-sm shadow-[0_14px_30px_-12px_rgba(34,197,94,0.7)] hover:bg-cold-dark hover:text-white transition-all flex items-center justify-center gap-2 active:scale-[0.98]"
             >
               <CheckCircle2 className="w-4 h-4" />
               <span>{t('confirmAndAdd', lang)}</span>

@@ -1213,8 +1213,28 @@ export const UI_TRANSLATIONS: Record<LanguageType, Record<string, string>> = {
  * Gets translation string for given key and language.
  * Fallback to English if translation key is missing in target language.
  */
+/**
+ * Strings added after the initial translation tables (e.g. the new brand
+ * marketing copy). Falls back to English per language when missing.
+ */
+const EXTRA_UI: Record<string, Record<LanguageType, string>> = {
+  scanMyFridge: {
+    en: 'Scan my fridge',
+    fr: 'Scanner mon frigo',
+    'ar-MA': 'سكاني التلاجة',
+    ar: 'امسح ثلاجتي',
+    es: 'Escanear mi nevera',
+    de: 'Kühlschrank scannen',
+    it: 'Scansiona il mio frigo',
+    pt: 'Escanear o meu frigorífico',
+    ja: '冷蔵庫をスキャン',
+  },
+};
+
 export function t(key: string, lang: string = 'en'): string {
   const selectedLang = (lang || 'en') as LanguageType;
+  const extra = EXTRA_UI[key]?.[selectedLang] || EXTRA_UI[key]?.en;
+  if (extra) return extra;
   const dict = UI_TRANSLATIONS[selectedLang] || UI_TRANSLATIONS.en;
   return dict[key] || UI_TRANSLATIONS.en[key] || key;
 }

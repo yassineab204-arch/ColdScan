@@ -1,5 +1,15 @@
-import React from 'react';
-import { Refrigerator, Sparkles, AlertCircle, Mic, MessageCircle, Settings, Globe } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import {
+  Refrigerator,
+  MessageCircle,
+  Mic,
+  Settings,
+  Globe,
+  Menu,
+  X,
+  Camera,
+  AlertCircle,
+} from 'lucide-react';
 import { TabType, LanguageType } from '../types';
 import { t } from '../utils/i18n';
 
@@ -13,6 +23,11 @@ interface HeaderProps {
   onSelectLanguage?: (lang: LanguageType) => void;
 }
 
+/**
+ * Premium sticky ColdScan navbar.
+ * Transparent over the hero, frosted white once the page scrolls.
+ * On mobile it collapses into a clean hamburger menu.
+ */
 export const Header: React.FC<HeaderProps> = ({
   activeTab,
   expiringCount,
@@ -22,157 +37,238 @@ export const Header: React.FC<HeaderProps> = ({
   onNavigate,
   onSelectLanguage,
 }) => {
-  const currentLang = (language || 'en') as LanguageType;
+  const [scrolled, setScrolled] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const lang = (language || 'en') as LanguageType;
 
-  const titles: Record<TabType, { title: string; subtitle: string }> = {
-    home: {
-      title: 'COLDSCAN',
-      subtitle: t('appSubtitle', currentLang),
-    },
-    scan: {
-      title: t('scanTitle', currentLang),
-      subtitle: t('scanSubtitleHeader', currentLang),
-    },
-    inventory: {
-      title: t('fridgeInventory', currentLang),
-      subtitle: t('inventorySubtitleHeader', currentLang),
-    },
-    recipes: {
-      title: t('recipesTitle', currentLang),
-      subtitle: t('recipesSubtitleHeader', currentLang),
-    },
-    shopping: {
-      title: t('shoppingListTitle', currentLang),
-      subtitle: t('shoppingSubtitleHeader', currentLang),
-    },
-    cost: {
-      title: t('financialSavingsTitle', currentLang),
-      subtitle: t('costSubtitleHeader', currentLang),
-    },
-    settings: {
-      title: t('settingsTitle', currentLang),
-      subtitle: t('settingsSubtitleHeader', currentLang),
-    },
+  const NAV_LINKS: { id: TabType; label: string }[] = [
+    { id: 'home', label: t('home', lang) },
+    { id: 'scan', label: t('scan', lang) },
+    { id: 'recipes', label: t('recipes', lang) },
+    { id: 'shopping', label: t('shopping', lang) },
+  ];
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 12);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  // Close the mobile menu whenever a tab is selected
+  const go = (tab: TabType) => {
+    setMenuOpen(false);
+    onNavigate(tab);
   };
 
+  const solid = scrolled || activeTab !== 'home' || menuOpen;
+
   return (
-    <header className="sticky top-0 z-30 w-full bg-white/95 backdrop-blur-md border-b border-slate-200 px-3 py-2.5 shadow-xs">
-      <div className="w-full max-w-md md:max-w-2xl lg:max-w-4xl mx-auto flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2.5 min-w-0 flex-1">
-          <button 
-            onClick={() => onNavigate('home')}
-            className="w-10 h-10 bg-emerald-600 rounded-xl flex items-center justify-center text-white shadow-sm hover:scale-105 active:scale-95 hover:bg-emerald-700 transition-all duration-200 shrink-0"
+    <header
+      className={`sticky top-0 z-40 w-full transition-all duration-300 ${
+        solid
+          ? 'bg-white/85 backdrop-blur-xl border-b border-ink/[0.07] shadow-[0_8px_30px_-16px_rgba(11,61,46,0.18)]'
+          : 'bg-transparent border-b border-transparent'
+      }`}
+    >
+      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
+        <div className="flex h-16 sm:h-[72px] items-center justify-between gap-3">
+          {/* Logo */}
+          <button
+            onClick={() => go('home')}
+            className="flex items-center gap-2.5 shrink-0 group"
+            aria-label="ColdScan home"
           >
-            <Refrigerator className="w-5 h-5 stroke-[2.5]" />
+            <span className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl bg-pine text-cold shadow-[0_8px_20px_-8px_rgba(11,61,46,0.6)] transition-transform duration-200 group-hover:scale-105">
+              <Refrigerator className="h-5 w-5" strokeWidth={2.3} />
+            </span>
+            <span className="flex flex-col items-start leading-none">
+              <span className="text-[17px] sm:text-lg font-extrabold tracking-tight text-pine">
+                ColdScan
+              </span>
+              <span className="mt-0.5 hidden sm:block text-[8.5px] font-bold uppercase tracking-[0.28em] text-ink/40">
+                Scan · Cook · Save
+              </span>
+            </span>
           </button>
-          <div className="min-w-0">
-            <h1 className="font-semibold tracking-tight text-emerald-950 text-lg leading-none flex items-center gap-1.5 truncate">
-              <span>{titles[activeTab].title}</span>
-              {activeTab === 'home' && (
-                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[8px] font-semibold uppercase tracking-widest bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                  AI
-                </span>
-              )}
-            </h1>
-            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-tight mt-0.5 truncate">
-              {titles[activeTab].subtitle}
-            </p>
+
+          {/* Desktop nav links */}
+          <nav className="hidden md:flex items-center gap-1" aria-label="Main navigation">
+            {NAV_LINKS.map((link) => {
+              const isActive = activeTab === link.id;
+              return (
+                <button
+                  key={link.id}
+                  onClick={() => go(link.id)}
+                  className={`relative rounded-full px-4 py-2 text-sm font-semibold transition-colors duration-200 ${
+                    isActive
+                      ? 'text-pine bg-mint'
+                      : 'text-ink/60 hover:text-pine hover:bg-ink/[0.04]'
+                  }`}
+                >
+                  {link.label}
+                  {isActive && (
+                    <span className="absolute left-1/2 -bottom-0.5 h-1 w-1 -translate-x-1/2 rounded-full bg-cold" />
+                  )}
+                </button>
+              );
+            })}
+          </nav>
+
+          {/* Right actions */}
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            {/* Expiring alert */}
+            {expiringCount > 0 && activeTab !== 'inventory' && (
+              <button
+                onClick={() => go('inventory')}
+                className="relative hidden sm:flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-2 text-xs font-bold text-amber-700 ring-1 ring-amber-200/80 transition-all hover:bg-amber-100"
+                title={`${expiringCount} items to use soon`}
+              >
+                <AlertCircle className="h-4 w-4 text-amber-500" />
+                <span className="tabular-nums">{expiringCount}</span>
+              </button>
+            )}
+
+            {/* AI chat */}
+            <button
+              onClick={onOpenAssistant}
+              className="hidden sm:flex items-center gap-2 rounded-full bg-mint px-3.5 py-2 text-xs font-bold text-pine ring-1 ring-cold/20 transition-all duration-200 hover:bg-mint-deep"
+              title="Chat with ColdScan AI"
+            >
+              <MessageCircle className="h-4 w-4 text-cold-dark" />
+              <span className="hidden lg:inline">{t('askAi', lang)}</span>
+            </button>
+
+            {/* Live voice */}
+            <button
+              onClick={onOpenLiveVoice}
+              className="hidden sm:flex items-center gap-2 rounded-full bg-mint px-3.5 py-2 text-xs font-bold text-pine ring-1 ring-cold/20 transition-all duration-200 hover:bg-mint-deep"
+              title="Talk to ColdScan Live Voice"
+            >
+              <Mic className="h-4 w-4 text-cold-dark" />
+              <span className="hidden lg:inline">{t('askLive', lang)}</span>
+            </button>
+
+            {/* Primary CTA */}
+            <button
+              onClick={() => go('scan')}
+              className="hidden md:inline-flex items-center gap-2 rounded-full bg-cold px-5 py-2.5 text-sm font-bold text-pine-deep shadow-[0_10px_26px_-10px_rgba(34,197,94,0.8)] transition-all duration-200 hover:bg-cold/90 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98]"
+            >
+              <Camera className="h-4 w-4" strokeWidth={2.4} />
+              {t('scanMyFridge', lang)}
+            </button>
+
+            {/* Mobile hamburger */}
+            <button
+              onClick={() => setMenuOpen((v) => !v)}
+              className="md:hidden flex h-10 w-10 items-center justify-center rounded-xl bg-white/80 ring-1 ring-ink/10 text-pine transition-colors hover:bg-mint"
+              aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+              aria-expanded={menuOpen}
+            >
+              {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </button>
           </div>
         </div>
+      </div>
 
-        <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
-          {/* Quick Language Toggle Button: EN / FR / Darija. Keep the compact header
-              clear on phones; the full picker remains available on Home and Settings. */}
-          {onSelectLanguage && (
-            <div className="hidden sm:flex items-center p-0.5 rounded-xl bg-slate-100 border border-slate-200 text-[10px] font-semibold">
+      {/* Mobile menu panel */}
+      {menuOpen && (
+        <div className="md:hidden border-t border-ink/[0.06] bg-white/95 backdrop-blur-xl">
+          <div className="mx-auto max-w-6xl px-4 py-4 space-y-1">
+            {NAV_LINKS.map((link) => {
+              const isActive = activeTab === link.id;
+              return (
+                <button
+                  key={link.id}
+                  onClick={() => go(link.id)}
+                  className={`flex w-full items-center justify-between rounded-xl px-4 py-3 text-[15px] font-semibold transition-colors ${
+                    isActive ? 'bg-mint text-pine' : 'text-ink/70 hover:bg-ink/[0.04]'
+                  }`}
+                >
+                  {link.label}
+                  {isActive && <span className="h-2 w-2 rounded-full bg-cold" />}
+                </button>
+              );
+            })}
+
+            <div className="mt-2 grid grid-cols-2 gap-2">
               <button
-                onClick={() => onSelectLanguage('en')}
-                className={`px-1.5 py-1 rounded-lg transition-all flex items-center gap-0.5 ${
-                  currentLang === 'en'
-                    ? 'bg-emerald-600 text-white shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-                title="Switch to English"
+                onClick={() => {
+                  setMenuOpen(false);
+                  onOpenAssistant();
+                }}
+                className="flex items-center justify-center gap-2 rounded-xl bg-mint px-4 py-3 text-sm font-bold text-pine ring-1 ring-cold/20"
               >
-                <span>🇬🇧</span>
-                <span className="font-bold">EN</span>
+                <MessageCircle className="h-4 w-4 text-cold-dark" />
+                {t('askAi', lang)}
               </button>
               <button
-                onClick={() => onSelectLanguage('fr')}
-                className={`px-1.5 py-1 rounded-lg transition-all flex items-center gap-0.5 ${
-                  currentLang === 'fr'
-                    ? 'bg-emerald-600 text-white shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-                title="Passer en Français"
+                onClick={() => {
+                  setMenuOpen(false);
+                  onOpenLiveVoice();
+                }}
+                className="flex items-center justify-center gap-2 rounded-xl bg-mint px-4 py-3 text-sm font-bold text-pine ring-1 ring-cold/20"
               >
-                <span>🇫🇷</span>
-                <span className="font-bold">FR</span>
-              </button>
-              <button
-                onClick={() => onSelectLanguage('ar-MA')}
-                className={`px-1.5 py-1 rounded-lg transition-all flex items-center gap-0.5 ${
-                  currentLang === 'ar-MA'
-                    ? 'bg-emerald-600 text-white shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-                title="الدارجة المغربية"
-              >
-                <span>🇲🇦</span>
-                <span className="font-bold">MA</span>
+                <Mic className="h-4 w-4 text-cold-dark" />
+                {t('askLive', lang)}
               </button>
             </div>
-          )}
 
-          {expiringCount > 0 && activeTab !== 'inventory' && (
-            <button
-              onClick={() => onNavigate('inventory')}
-              className="relative px-2 py-1.5 rounded-xl bg-rose-50/60 text-rose-700 border border-rose-200 hover:bg-rose-100 hover:scale-105 active:scale-95 transition-all duration-200 flex items-center gap-1 text-xs font-semibold shadow-xs"
-              title={`${expiringCount} items expiring soon`}
-            >
-              <AlertCircle className="w-4 h-4 text-rose-600 animate-pulse" />
-              <span className="font-mono text-xs">{expiringCount}</span>
-            </button>
-          )}
+            {expiringCount > 0 && activeTab !== 'inventory' && (
+              <button
+                onClick={() => go('inventory')}
+                className="mt-2 flex w-full items-center gap-2 rounded-xl bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800 ring-1 ring-amber-200/80"
+              >
+                <AlertCircle className="h-4 w-4 text-amber-500" />
+                {expiringCount} item{expiringCount > 1 ? 's' : ''} to use soon
+              </button>
+            )}
 
-          <button
-            onClick={onOpenAssistant}
-            className="flex items-center gap-1 bg-emerald-50 p-2 sm:px-2 sm:py-1.5 rounded-xl border border-emerald-200 hover:bg-emerald-100 hover:scale-105 active:scale-95 transition-all duration-200 shadow-xs"
-            title={t('askAiTitle', currentLang)}
-            aria-label={t('askAiTitle', currentLang)}
-          >
-            <MessageCircle className="w-3.5 h-3.5 text-emerald-700" />
-            <span className="text-[10px] font-semibold text-emerald-700 uppercase tracking-wider hidden sm:inline">
-              {t('askAi', currentLang)}
-            </span>
-          </button>
+            {/* Language quick toggle (same as before, preserved) */}
+            {onSelectLanguage && (
+              <div className="mt-2 flex items-center gap-1 rounded-xl bg-ink/[0.03] p-1 ring-1 ring-ink/[0.06]">
+                <Globe className="ml-2 h-4 w-4 text-ink/40" />
+                {(
+                  [
+                    { id: 'en', label: 'EN' },
+                    { id: 'fr', label: 'FR' },
+                    { id: 'ar-MA', label: 'MA' },
+                  ] as { id: LanguageType; label: string }[]
+                ).map((l) => (
+                  <button
+                    key={l.id}
+                    onClick={() => onSelectLanguage(l.id)}
+                    className={`flex-1 rounded-lg px-2 py-1.5 text-xs font-bold transition-colors ${
+                      language === l.id
+                        ? 'bg-pine text-cold'
+                        : 'text-ink/50 hover:text-ink'
+                    }`}
+                  >
+                    {l.label}
+                  </button>
+                ))}
+              </div>
+            )}
 
-          <button
-            onClick={onOpenLiveVoice}
-            className="flex items-center gap-1 bg-emerald-50 p-2 sm:px-2 sm:py-1.5 rounded-xl border border-emerald-200 hover:bg-emerald-100 hover:scale-105 active:scale-95 transition-all duration-200 shadow-xs"
-            title="Talk to Voice Assistant"
-          >
-            <Mic className="w-3.5 h-3.5 text-emerald-700" />
-            <span className="text-[10px] font-semibold text-emerald-700 uppercase tracking-wider hidden sm:inline">
-              {t('askLive', currentLang)}
-            </span>
-          </button>
-
-          <button
-            onClick={() => onNavigate('settings')}
-            className={`p-2 rounded-xl border transition-all duration-200 hover:scale-105 active:scale-95 ${
-              activeTab === 'settings'
-                ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
-                : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200'
-            }`}
-            title="Settings"
-          >
-            <Settings className="w-4 h-4" />
-          </button>
+            <div className="mt-2 flex items-center gap-2">
+              <button
+                onClick={() => go('settings')}
+                className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-ink/[0.04] px-4 py-3 text-sm font-semibold text-ink/70"
+              >
+                <Settings className="h-4 w-4" />
+                Settings
+              </button>
+              <button
+                onClick={() => go('scan')}
+                className="flex flex-[1.6] items-center justify-center gap-2 rounded-xl bg-cold px-4 py-3 text-sm font-bold text-pine-deep shadow-[0_10px_24px_-10px_rgba(34,197,94,0.8)]"
+              >
+                <Camera className="h-4 w-4" strokeWidth={2.4} />
+                {t('scanMyFridge', lang)}
+              </button>
+            </div>
+          </div>
         </div>
-      </div>
+      )}
     </header>
   );
 };
-

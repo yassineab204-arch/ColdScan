@@ -77,7 +77,7 @@ export const CostEstimateScreen: React.FC<CostEstimateScreenProps> = ({
             </p>
           </div>
 
-          <span className="text-[10px] font-black uppercase tracking-widest text-emerald-700 bg-emerald-100 px-2.5 py-1 rounded-md">
+          <span className="text-[10px] font-black uppercase tracking-widest text-pine bg-mint px-2.5 py-1 rounded-md ring-1 ring-cold/25">
             {t('estAnalytics', lang)}
           </span>
         </div>
@@ -89,10 +89,10 @@ export const CostEstimateScreen: React.FC<CostEstimateScreenProps> = ({
             <span className="text-[9px] font-black uppercase tracking-wider text-slate-500">{shoppingList.length} {t('itemsLogged', lang)}</span>
           </div>
 
-          <div className="bg-emerald-600 rounded-2xl p-3.5 text-white border border-emerald-500 shadow-xs">
-            <p className="text-[10px] font-black uppercase tracking-widest text-emerald-200 mb-0.5">{t('estSavedMo', lang)}</p>
+          <div className="bg-pine rounded-2xl p-3.5 text-white border border-cold/30 shadow-xs">
+            <p className="text-[10px] font-black uppercase tracking-widest text-cold-soft mb-0.5">{t('estSavedMo', lang)}</p>
             <p className="text-2xl font-black tracking-tighter text-white">{estimatedSavingsThisMonth} {currency}</p>
-            <span className="text-[9px] font-black uppercase tracking-wider text-emerald-100">{rescuedCount} {t('fresh', lang)}</span>
+            <span className="text-[9px] font-black uppercase tracking-wider text-cold-soft/80">{rescuedCount} {t('fresh', lang)}</span>
           </div>
         </div>
       </div>
@@ -117,11 +117,11 @@ export const CostEstimateScreen: React.FC<CostEstimateScreenProps> = ({
                 <div key={cat} className="space-y-1">
                   <div className="flex items-center justify-between text-xs font-semibold text-slate-700">
                     <span>{getLocalizedCategory(cat, lang)}</span>
-                    <span className="text-emerald-700">{amount.toFixed(2)} {currency} ({percent}%)</span>
+                    <span className="text-cold-dark">{amount.toFixed(2)} {currency} ({percent}%)</span>
                   </div>
                   <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
                     <div
-                      className="h-full bg-emerald-500 rounded-full transition-all duration-500"
+                      className="h-full bg-cold rounded-full transition-all duration-500"
                       style={{ width: `${percent}%` }}
                     />
                   </div>
@@ -135,7 +135,7 @@ export const CostEstimateScreen: React.FC<CostEstimateScreenProps> = ({
       {/* Money-Saving Tips */}
       <div className="space-y-2.5">
         <h3 className="font-bold text-slate-800 text-sm flex items-center gap-1.5">
-          <PiggyBank className="w-4 h-4 text-emerald-600" />
+          <PiggyBank className="w-4 h-4 text-cold-dark" />
           Grocery Money-Saving Hacks
         </h3>
 
@@ -143,11 +143,11 @@ export const CostEstimateScreen: React.FC<CostEstimateScreenProps> = ({
           {tips.map((tip, idx) => (
             <div
               key={idx}
-              className="p-3.5 bg-white border border-slate-200/80 rounded-2xl shadow-xs space-y-1 hover:border-emerald-300 transition-colors"
+              className="p-3.5 bg-white border border-slate-200/80 rounded-2xl shadow-xs space-y-1 hover:border-cold transition-colors"
             >
               <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                 <h4 className="font-bold text-slate-800 text-xs">{tip.title}</h4>
-                <span className="text-[10px] font-extrabold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100">
+                <span className="text-[10px] font-extrabold text-pine bg-mint px-2 py-0.5 rounded-md border border-cold/25">
                   Save {tip.savings}
                 </span>
               </div>

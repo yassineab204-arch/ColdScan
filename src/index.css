@@ -1,34 +1,225 @@
 @import "tailwindcss";
 
+/* ============================================================
+   ColdScan design tokens (Tailwind v4 @theme)
+   ============================================================ */
+@theme {
+  /* Primary dark green */
+  --color-pine: #0b3d2e;
+  --color-pine-light: #124e3a;
+  --color-pine-deep: #07281e;
+
+  /* ColdScan green */
+  --color-cold: #22c55e;
+  --color-cold-dark: #16a34a;
+  --color-cold-soft: #86efac;
+
+  /* Light green / surfaces */
+  --color-mint: #e8f7ef;
+  --color-mint-deep: #d9f0e4;
+
+  /* Dark text */
+  --color-ink: #10231b;
+
+  /* Typography */
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
 :root {
   color-scheme: light;
-  --navy: #0a192f;
+  --navy: #0b3d2e;
   --emerald: #047857;
 }
 
 html {
   min-height: 100%;
-  background: #f8fafc;
+  scroll-behavior: smooth;
+  background: #ffffff;
 }
 
 body {
   min-height: 100%;
   margin: 0;
   overflow-x: hidden;
-  font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+  font-family: var(--font-sans);
+  background: #ffffff;
+  color: var(--color-ink);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 #root {
   min-height: 100dvh;
 }
 
-button, a, input, select, textarea {
+button,
+a,
+input,
+select,
+textarea {
   -webkit-tap-highlight-color: transparent;
 }
 
-button { touch-action: manipulation; }
+button {
+  touch-action: manipulation;
+}
 
-.scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
-.scrollbar-none::-webkit-scrollbar { display: none; }
+::selection {
+  background: var(--color-cold);
+  color: var(--color-pine-deep);
+}
+
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+/* ============================================================
+   Brand keyframes (all disabled under prefers-reduced-motion)
+   ============================================================ */
+
+/* Hero fridge scanning line */
+@keyframes cs-scanline {
+  0% {
+    top: 10%;
+    opacity: 0;
+  }
+  8% {
+    opacity: 1;
+  }
+  92% {
+    opacity: 1;
+  }
+  100% {
+    top: 88%;
+    opacity: 0;
+  }
+}
+
+/* Gentle floating for hero cards */
+@keyframes cs-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes cs-float-soft {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-6px) rotate(0.6deg);
+  }
+}
+
+/* Detection labels popping onto the fridge mock */
+@keyframes cs-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.85) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* Soft pulse for status dots */
+@keyframes cs-pulse-soft {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+/* Downward arrow for the waste story */
+@keyframes cs-arrow-down {
+  0%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.75;
+  }
+  50% {
+    transform: translateY(6px);
+    opacity: 1;
+  }
+}
+
+/* Subtle glow breathing on the hero phone */
+@keyframes cs-glow {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+
+.animate-cs-scanline {
+  animation: cs-scanline 3.4s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+.animate-cs-float {
+  animation: cs-float 5.5s ease-in-out infinite;
+}
+.animate-cs-float-soft {
+  animation: cs-float-soft 6.5s ease-in-out infinite;
+}
+.animate-cs-pop {
+  animation: cs-pop 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.animate-cs-pulse-soft {
+  animation: cs-pulse-soft 2.2s ease-in-out infinite;
+}
+.animate-cs-arrow-down {
+  animation: cs-arrow-down 1.6s ease-in-out infinite;
+}
+.animate-cs-glow {
+  animation: cs-glow 4.5s ease-in-out infinite;
+}
+
+/* Marquee-free, static hero helpers */
+.cs-hero-grid {
+  background-image:
+    linear-gradient(to right, rgba(11, 61, 46, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(11, 61, 46, 0.05) 1px, transparent 1px);
+  background-size: 44px 44px;
+}
+
+/* ============================================================
+   Accessibility: respect reduced motion
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .animate-cs-scanline,
+  .animate-cs-float,
+  .animate-cs-float-soft,
+  .animate-cs-pop,
+  .animate-cs-pulse-soft,
+  .animate-cs-arrow-down,
+  .animate-cs-glow {
+    animation: none !important;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
