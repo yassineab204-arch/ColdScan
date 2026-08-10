@@ -66,9 +66,9 @@ export const InventoryScreen: React.FC<InventoryScreenProps> = ({
     <div className="space-y-5 pb-20 max-w-md mx-auto">
       
       {/* Page Title Card */}
-      <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-xs flex items-center justify-between">
-        <div>
-          <h2 className="text-3xl font-black tracking-tighter leading-none text-slate-900">
+      <div className="bg-white border border-slate-200 rounded-3xl p-4 sm:p-5 shadow-xs flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <h2 className="text-2xl sm:text-3xl font-black tracking-tighter leading-none text-slate-900">
             {t('fridgeInventory', lang).split(' ')[0]}<br/>
             {t('fridgeInventory', lang).split(' ').slice(1).join(' ') || 'INVENTORY'}
           </h2>
@@ -79,7 +79,7 @@ export const InventoryScreen: React.FC<InventoryScreenProps> = ({
 
         <button
           onClick={handleAddNew}
-          className="px-4 py-3 rounded-2xl bg-emerald-600 text-white font-black text-xs uppercase tracking-widest flex items-center gap-1.5 hover:bg-emerald-700 hover:scale-105 active:scale-95 transition-all duration-200 shadow-sm hover:shadow-md"
+          className="w-full sm:w-auto justify-center px-4 py-3 rounded-2xl bg-emerald-600 text-white font-black text-xs uppercase tracking-widest flex items-center gap-1.5 hover:bg-emerald-700 hover:scale-105 active:scale-95 transition-all duration-200 shadow-sm hover:shadow-md"
         >
           <Plus className="w-4 h-4" />
           {t('addItem', lang)}
@@ -165,16 +165,16 @@ export const InventoryScreen: React.FC<InventoryScreenProps> = ({
                     : 'border-slate-200 hover:border-emerald-300'
                 }`}
               >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-black text-slate-900 text-base leading-tight">{getLocalizedFoodItemName(item.name, lang)}</h3>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="space-y-1 min-w-0">
+                    <div className="flex items-start gap-2 flex-wrap">
+                      <h3 className="font-black text-slate-900 text-base leading-tight break-words">{getLocalizedFoodItemName(item.name, lang)}</h3>
                       <span className="text-xs text-slate-500 font-bold">
                         ({item.quantity} {item.unit})
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-wider text-slate-500">
+                    <div className="flex flex-wrap items-center gap-2 text-[10px] font-black uppercase tracking-wider text-slate-500">
                       <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700">
                         {getLocalizedCategory(item.category, lang)}
                       </span>
@@ -189,7 +189,7 @@ export const InventoryScreen: React.FC<InventoryScreenProps> = ({
                   </div>
 
                   {/* Freshness Badge & Number */}
-                  <div className="text-right shrink-0 flex flex-col items-end gap-1">
+                  <div className="text-right shrink-0 self-end sm:self-start flex flex-col items-end gap-1">
                     <span className="text-lg font-black text-slate-300 font-mono leading-none">{numStr}</span>
                     {isExpiring && (
                       <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 font-black text-[10px] uppercase tracking-wider border border-amber-200">
@@ -213,7 +213,7 @@ export const InventoryScreen: React.FC<InventoryScreenProps> = ({
                 </div>
 
                 {/* Action Buttons */}
-                <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between">
+                <div className="mt-3 pt-2.5 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
                   <button
                     onClick={() => onNavigateToRecipes(item.name)}
                     className="text-xs font-black text-emerald-800 hover:text-emerald-900 uppercase tracking-widest flex items-center gap-1 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-100"

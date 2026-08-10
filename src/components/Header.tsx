@@ -56,9 +56,9 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   return (
-    <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200 px-3 py-2.5 shadow-xs">
-      <div className="max-w-md md:max-w-2xl lg:max-w-4xl mx-auto flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2.5 min-w-0">
+    <header className="sticky top-0 z-30 w-full bg-white/95 backdrop-blur-md border-b border-slate-200 px-3 py-2.5 shadow-xs">
+      <div className="w-full max-w-md md:max-w-2xl lg:max-w-4xl mx-auto flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2.5 min-w-0 flex-1">
           <button 
             onClick={() => onNavigate('home')}
             className="w-10 h-10 bg-emerald-600 rounded-xl flex items-center justify-center text-white shadow-sm hover:scale-105 active:scale-95 hover:bg-emerald-700 transition-all duration-200 shrink-0"
@@ -81,10 +81,11 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5 shrink-0">
-          {/* Quick Language Toggle Button: EN / FR / Darija */}
+        <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+          {/* Quick Language Toggle Button: EN / FR / Darija. Keep the compact header
+              clear on phones; the full picker remains available on Home and Settings. */}
           {onSelectLanguage && (
-            <div className="flex items-center p-0.5 rounded-xl bg-slate-100 border border-slate-200 text-[10px] font-black">
+            <div className="hidden sm:flex items-center p-0.5 rounded-xl bg-slate-100 border border-slate-200 text-[10px] font-black">
               <button
                 onClick={() => onSelectLanguage('en')}
                 className={`px-1.5 py-1 rounded-lg transition-all flex items-center gap-0.5 ${
@@ -137,7 +138,7 @@ export const Header: React.FC<HeaderProps> = ({
 
           <button
             onClick={onOpenAssistant}
-            className="flex items-center gap-1 bg-emerald-50 px-2 py-1.5 rounded-xl border border-emerald-200 hover:bg-emerald-100 hover:scale-105 active:scale-95 transition-all duration-200 shadow-xs"
+            className="flex items-center gap-1 bg-emerald-50 p-2 sm:px-2 sm:py-1.5 rounded-xl border border-emerald-200 hover:bg-emerald-100 hover:scale-105 active:scale-95 transition-all duration-200 shadow-xs"
             title={t('askAiTitle', currentLang)}
             aria-label={t('askAiTitle', currentLang)}
           >
@@ -149,7 +150,7 @@ export const Header: React.FC<HeaderProps> = ({
 
           <button
             onClick={onOpenLiveVoice}
-            className="flex items-center gap-1 bg-emerald-50 px-2 py-1.5 rounded-xl border border-emerald-200 hover:bg-emerald-100 hover:scale-105 active:scale-95 transition-all duration-200 shadow-xs"
+            className="flex items-center gap-1 bg-emerald-50 p-2 sm:px-2 sm:py-1.5 rounded-xl border border-emerald-200 hover:bg-emerald-100 hover:scale-105 active:scale-95 transition-all duration-200 shadow-xs"
             title="Talk to Voice Assistant"
           >
             <Mic className="w-3.5 h-3.5 text-emerald-700" />

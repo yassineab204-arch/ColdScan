@@ -248,7 +248,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100/70 text-slate-900 flex flex-col font-sans antialiased">
+    <div className="min-h-screen min-h-[100dvh] w-full overflow-x-hidden bg-slate-100/70 text-slate-900 flex flex-col font-sans antialiased">
       {/* Header */}
       <Header
         activeTab={activeTab}
@@ -261,7 +261,7 @@ export default function App() {
       />
 
       {/* Main Content Viewport */}
-      <main className="flex-1 px-3 py-4 max-w-md md:max-w-2xl lg:max-w-4xl mx-auto w-full pb-24">
+      <main className="flex-1 w-full max-w-md md:max-w-2xl lg:max-w-4xl mx-auto px-3 sm:px-4 py-4 pb-[calc(6rem+env(safe-area-inset-bottom))] overflow-x-hidden">
         {activeTab === 'home' && (
           <HomeScreen
             inventory={inventory}
