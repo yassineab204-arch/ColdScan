@@ -31,7 +31,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   }
 
   try {
-    const { inventory = [], recipe = null, voiceName } = readBody(req);
+    const { inventory = [], recipe = null, voiceName, language = 'en' } = readBody(req);
     const voice = typeof voiceName === 'string' && voiceName ? voiceName : DEFAULT_VOICE;
 
     const ai = new GoogleGenAI({ apiKey, httpOptions: { apiVersion: 'v1alpha' } });
@@ -55,7 +55,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
             },
             inputAudioTranscription: {},
             outputAudioTranscription: {},
-            systemInstruction: buildLiveSystemInstruction({ inventory, recipe }),
+            systemInstruction: buildLiveSystemInstruction({ inventory, recipe, language }),
             // Deliberately no temperature: temperature on the native-audio live
             // model is associated with silent-output / 1011 disconnect bugs.
           },

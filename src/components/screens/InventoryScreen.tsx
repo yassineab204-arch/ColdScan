@@ -102,7 +102,7 @@ export const InventoryScreen: React.FC<InventoryScreenProps> = ({
               onClick={() => setSearchQuery('')}
               className="absolute right-3.5 top-3 text-[10px] text-slate-400 hover:text-slate-600 font-black uppercase tracking-wider"
             >
-              Clear
+              {t('clearLabel', lang)}
             </button>
           )}
         </div>

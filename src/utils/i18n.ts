@@ -1238,6 +1238,22 @@ const EXTRA_UI: Record<string, Record<LanguageType, string>> = {
   voiceGuide: { en: 'Hands-free recipe voice guide', fr: 'Guide vocal mains libres', 'ar-MA': 'دليل الوصفات بالصوت بلا يدين', ar: 'دليل وصفات صوتي دون استخدام اليدين', es: 'Guía de recetas por voz manos libres', de: 'Freihändiger Rezept-Sprachguide', it: 'Guida vocale ricette a mani libere', pt: 'Guia de receitas por voz mãos-livres', ja: 'ハンズフリーの音声レシピガイド' },
   voiceGuideDescription: { en: 'Ask what to cook, get step-by-step voice guidance, set timers, and ask for substitutions hands-free!', fr: 'Demandez quoi cuisiner, suivez les étapes à la voix et lancez des minuteurs.', 'ar-MA': 'سول شنو تطيب، تبع الخطوات بالصوت، دير مؤقتات وطلب البدائل بلا ما تمس الهاتف.', ar: 'اسأل ماذا تطبخ، واتبع الخطوات بالصوت واضبط المؤقتات دون لمس الهاتف.', es: 'Pregunta qué cocinar, sigue pasos por voz y crea temporizadores sin manos.', de: 'Frage, was du kochen kannst, folge Sprachschritten und stelle Timer.', it: 'Chiedi cosa cucinare, segui i passaggi vocali e imposta timer.', pt: 'Pergunte o que cozinhar, siga passos por voz e defina temporizadores.', ja: '作るものを質問し、音声で手順を聞き、ハンズフリーでタイマーを設定できます。' },
   talk: { en: 'Talk', fr: 'Parler', 'ar-MA': 'هضر', ar: 'تحدث', es: 'Hablar', de: 'Sprechen', it: 'Parla', pt: 'Falar', ja: '話す' },
+  languageLabel: { en: 'Language', fr: 'Langue', 'ar-MA': 'اللغة', ar: 'اللغة', es: 'Idioma', de: 'Sprache', it: 'Lingua', pt: 'Idioma', ja: '言語' },
+  estAnalytics: { en: 'Est. Analytics', fr: 'Analytiques Est.', 'ar-MA': 'تحليلات تقديرية', ar: 'تحليلات تقديرية', es: 'Analíticas Est.', de: 'Geschätzte Analytik', it: 'Analisi Stimate', pt: 'Análises Est.', ja: '推定分析' },
+  missingCost: { en: 'Missing Cost', fr: 'Coût Manquant', 'ar-MA': 'تكلفة الخصاص', ar: 'تكلفة النواقص', es: 'Coste Faltante', de: 'Fehlende Kosten', it: 'Costo Mancante', pt: 'Custo em Falta', ja: '不足コスト' },
+  estSavedMo: { en: 'Est. Saved / Mo', fr: 'Économisé Est. / Mois', 'ar-MA': 'التوفير المقدر / شهر', ar: 'المدخر التقديري / شهر', es: 'Ahorro Est. / Mes', de: 'Geschätzte Ersparnis / Monat', it: 'Risparmio Stimato / Mese', pt: 'Poupança Est. / Mês', ja: '推定節約 / 月' },
+  categoryBreakdown: { en: 'Shopping Category Breakdown', fr: 'Répartition par Catégorie', 'ar-MA': 'تقسيم السويقة حسب الفئة', ar: 'توزيع التسوق حسب الفئة', es: 'Desglose por Categoría', de: 'Aufschlüsselung nach Kategorie', it: 'Ripartizione per Categoria', pt: 'Divisão por Categoria', ja: 'カテゴリ別内訳' },
+  estimatedPrices: { en: 'Est. Prices', fr: 'Prix Est.', 'ar-MA': 'أثمنة تقديرية', ar: 'أسعار تقديرية', es: 'Precios Est.', de: 'Geschätzte Preise', it: 'Prezzi Stimati', pt: 'Preços Est.', ja: '推定価格' },
+  emptyCategoryBreakdown: { en: 'Your shopping list is empty. Add items to see expense breakdown.', fr: 'Votre liste est vide. Ajoutez des articles pour voir la répartition.', 'ar-MA': 'لائحة السويقة خاوية. زيد الحوايج باش تشوف التقسيم.', ar: 'قائمة التسوق فارغة. أضف عناصر لرؤية التوزيع.', es: 'Tu lista está vacía. Añade artículos para ver el desglose.', de: 'Deine Liste ist leer. Füge Artikel hinzu, um die Aufschlüsselung zu sehen.', it: 'La lista è vuota. Aggiungi articoli per vedere la ripartizione.', pt: 'Sua lista está vazia. Adicione itens para ver a divisão.', ja: 'リストは空です。項目を追加して内訳を表示しましょう。' },
+  moneySavingHacks: { en: 'Grocery Money-Saving Hacks', fr: 'Astuces pour Économiser aux Courses', 'ar-MA': 'حيل لتوفير الفلوس فالسويقة', ar: 'حيل لتوفير المال في التسوق', es: 'Trucos para Ahorrar en la Compra', de: 'Geldspar-Tricks für den Einkauf', it: 'Trucchi per Risparmiare sulla Spesa', pt: 'Dicas para Poupar nas Compras', ja: '食料品の節約術' },
+  saveLabel: { en: 'Save', fr: 'Économisez', 'ar-MA': 'توفر', ar: 'وفر', es: 'Ahorra', de: 'Spare', it: 'Risparmia', pt: 'Poupe', ja: '節約' },
+  cookingGuide: { en: 'Cooking Guide', fr: 'Guide de Cuisine', 'ar-MA': 'دليل الطياب', ar: 'دليل الطبخ', es: 'Guía de Cocina', de: 'Koch-Anleitung', it: 'Guida di Cucina', pt: 'Guia de Cozinha', ja: '調理ガイド' },
+  instructionsLabel: { en: 'Instructions', fr: 'Instructions', 'ar-MA': 'التعليمات', ar: 'التعليمات', es: 'Instrucciones', de: 'Anleitung', it: 'Istruzioni', pt: 'Instruções', ja: '手順' },
+  clearLabel: { en: 'Clear', fr: 'Effacer', 'ar-MA': 'مسح', ar: 'مسح', es: 'Borrar', de: 'Löschen', it: 'Cancella', pt: 'Limpar', ja: 'クリア' },
+  warn1Day: { en: 'Warn 1 day before expiry', fr: 'Alerter 1 jour avant péremption', 'ar-MA': 'نبه قبل يوم واحد من الانتهاء', ar: 'تنبيه قبل يوم واحد من الانتهاء', es: 'Avisar 1 día antes de caducar', de: '1 Tag vor Ablauf warnen', it: 'Avvisa 1 giorno prima della scadenza', pt: 'Avisar 1 dia antes de expirar', ja: '期限の1日前に通知' },
+  warn2Days: { en: 'Warn 2 days before expiry', fr: 'Alerter 2 jours avant péremption', 'ar-MA': 'نبه قبل يومين من الانتهاء', ar: 'تنبيه قبل يومين من الانتهاء', es: 'Avisar 2 días antes de caducar', de: '2 Tage vor Ablauf warnen', it: 'Avvisa 2 giorni prima della scadenza', pt: 'Avisar 2 dias antes de expirar', ja: '期限の2日前に通知' },
+  warn3Days: { en: 'Warn 3 days before expiry (Default)', fr: 'Alerter 3 jours avant péremption (Défaut)', 'ar-MA': 'نبه قبل 3 أيام (افتراضي)', ar: 'تنبيه قبل 3 أيام (افتراضي)', es: 'Avisar 3 días antes (Predeterminado)', de: '3 Tage vor Ablauf warnen (Standard)', it: 'Avvisa 3 giorni prima (Predefinito)', pt: 'Avisar 3 dias antes (Padrão)', ja: '期限の3日前に通知（デフォルト）' },
+  warn5Days: { en: 'Warn 5 days before expiry', fr: 'Alerter 5 jours avant péremption', 'ar-MA': 'نبه قبل 5 أيام', ar: 'تنبيه قبل 5 أيام من الانتهاء', es: 'Avisar 5 días antes de caducar', de: '5 Tage vor Ablauf warnen', it: 'Avvisa 5 giorni prima della scadenza', pt: 'Avisar 5 dias antes de expirar', ja: '期限の5日前に通知' },
 };
 
 export function t(key: string, lang: string = 'en'): string {
@@ -1542,6 +1558,9 @@ export function getLocalizedCategory(category: string, lang: string = 'en'): str
     'Pantry': {
       en: 'Pantry', fr: 'Épicerie', 'ar-MA': 'خزينة الطعام', ar: 'المؤونة', es: 'Despensa', de: 'Vorratskammer', it: 'Dispensa', pt: 'Despensa', ja: '食品庫'
     },
+    'Pantry & Other': {
+      en: 'Pantry & Other', fr: 'Épicerie & Autre', 'ar-MA': 'خزينة الطعام و أخرى', ar: 'المؤونة وأخرى', es: 'Despensa y Otros', de: 'Vorratskammer & Sonstiges', it: 'Dispensa e Altro', pt: 'Despensa e Outros', ja: '食品庫・その他'
+    },
   };
   return catMap[category]?.[selectedLang] || category;
 }
@@ -1566,6 +1585,6 @@ export function getLocalizedLocation(location: string, lang: string = 'en'): str
       en: 'Bottom Shelf', fr: 'Étagère Inférieure', 'ar-MA': 'الرف التحتاني', ar: 'الرف السفلي', es: 'Estante Inferior', de: 'Unteres Fach', it: 'Ripiano Inferiore', pt: 'Prateleira Inferior', ja: '最下段',
     },
   };
-  return locMap[location]?.[lang] || location;
+  return locMap[location]?.[selectedLang] || location;
 }
 

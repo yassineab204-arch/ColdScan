@@ -194,8 +194,8 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({
           },
         ],
         totalDetected: 4,
-        summaryNotes: 'ColdScan detected 4 items in your refrigerator. 3 items are close to expiry and should be prioritized.',
-        suggestedAction: 'Recommended meal: Spinach & Cheddar Omelette or Creamy Tomato Pasta.',
+        summaryNotes: lang === 'fr' ? 'ColdScan a détecté 4 aliments. 3 d\'entre eux approchent de la péremption et doivent être utilisés en priorité.' : lang === 'ar-MA' ? 'كولد سكان كشف 4 حوايج فالتلاجة. 3 حوايج قريب يساليو وخاصك تستعملهم هو اللول.' : lang === 'ar' ? 'اكتشف كولد سكان 4 عناصر. 3 منها قريبة من الانتهاء ويجب استخدامها أولاً.' : lang === 'es' ? 'ColdScan detectó 4 alimentos. 3 están por caducar y deben usarse primero.' : lang === 'de' ? 'ColdScan hat 4 Artikel erkannt. 3 laufen bald ab und sollten zuerst verwendet werden.' : lang === 'ja' ? 'ColdScanが4点を検出。3点は期限が近く優先使用がおすすめです。' : lang === 'it' ? 'ColdScan ha rilevato 4 alimenti. 3 sono in scadenza e vanno usati per primi.' : lang === 'pt' ? 'ColdScan detectou 4 itens. 3 estão a expirar e devem ser usados primeiro.' : 'ColdScan detected 4 items in your refrigerator. 3 items are close to expiry and should be prioritized.',
+        suggestedAction: lang === 'fr' ? 'Repas recommandé : Omelette aux Épinards & Cheddar ou Pâtes Crémeuses aux Tomates.' : lang === 'ar-MA' ? 'وجبة مقترحة: أومليت بالسبانخ والفرماج ولا باستا بالطماطم.' : lang === 'ar' ? 'وجبة مقترحة: أومليت السبانخ أو معكرونة بالطماطم.' : lang === 'es' ? 'Comida recomendada: Tortilla de Espinacas y Cheddar o Pasta Cremosa de Tomate.' : lang === 'de' ? 'Empfohlen: Spinat & Cheddar Omelett oder Cremige Tomatenpasta.' : lang === 'ja' ? 'おすすめ：一品はほうれん草とチェダーのオムレツ、またはクリーミートマトパスタ。' : lang === 'it' ? 'Pasto consigliato: Omelette con Spinaci e Cheddar o Pasta Cremosa al Pomodoro.' : lang === 'pt' ? 'Refeição recomendada: Omelete de Espinafre ou Massa Cremosa de Tomate.' : 'Recommended meal: Spinach & Cheddar Omelette or Creamy Tomato Pasta.',
       });
     } finally {
       setIsScanning(false);

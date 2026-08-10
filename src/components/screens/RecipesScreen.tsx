@@ -241,7 +241,7 @@ export const RecipesScreen: React.FC<RecipesScreenProps> = ({
               {/* Action Bar */}
               <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-1.5 flex-wrap sm:flex-nowrap">
                 <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                  Est: <span className="font-extrabold text-slate-900">${recipe.missingCostEstimate.toFixed(2)}</span>
+                  {t('totalEst', lang)}: <span className="font-extrabold text-slate-900">{(settings?.currency || 'DH')} {recipe.missingCostEstimate.toFixed(2)}</span>
                 </div>
 
                 <div className="flex items-center gap-1.5 flex-wrap sm:flex-nowrap justify-end">
@@ -325,7 +325,7 @@ export const RecipesScreen: React.FC<RecipesScreenProps> = ({
             <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-mint/60">
               <div>
                 <span className="text-[10px] font-bold text-pine uppercase tracking-wider">
-                  Cooking Guide
+                  {t('cookingGuide', lang)}
                 </span>
                 <h3 className="font-bold text-slate-800 text-base leading-tight">
                   {getLocalizedRecipeName(selectedRecipe.name, lang)}
@@ -341,7 +341,7 @@ export const RecipesScreen: React.FC<RecipesScreenProps> = ({
 
             <div className="p-5 overflow-y-auto space-y-4 text-xs text-slate-700">
               <div>
-                <h4 className="font-bold text-slate-800 text-sm mb-1.5">Instructions</h4>
+                <h4 className="font-bold text-slate-800 text-sm mb-1.5">{t('instructionsLabel', lang)}</h4>
                 <ol className="space-y-2 list-decimal list-inside leading-relaxed text-slate-600">
                   {getLocalizedRecipeInstructions(selectedRecipe, lang).map((step, idx) => (
                     <li key={idx} className="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
@@ -361,13 +361,13 @@ export const RecipesScreen: React.FC<RecipesScreenProps> = ({
                   className="w-full sm:w-auto justify-center px-4 py-2 rounded-xl bg-pine text-cold font-black text-xs uppercase tracking-widest inline-flex items-center gap-1.5"
                 >
                   <ChefHat className="w-4 h-4" />
-                  Start Interactive Cook Mode
+                  {t('startInteractiveCook', lang)}
                 </button>
                 <button
                   onClick={() => setSelectedRecipe(null)}
                   className="w-full sm:w-auto px-4 py-2 rounded-xl bg-slate-100 text-slate-700 font-bold text-xs hover:bg-slate-200"
                 >
-                  Close
+                  {t('close', lang)}
                 </button>
               </div>
             </div>

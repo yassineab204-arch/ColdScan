@@ -100,13 +100,13 @@ export const CostEstimateScreen: React.FC<CostEstimateScreenProps> = ({
       {/* Expense Breakdown by Category */}
       <div className="bg-white border border-slate-200/80 rounded-3xl p-4 shadow-xs space-y-3">
         <h3 className="font-bold text-slate-800 text-sm flex items-center justify-between">
-          <span>Shopping Category Breakdown</span>
-          <span className="text-xs text-slate-500 font-normal">Est. Prices</span>
+          <span>{t('categoryBreakdown', lang)}</span>
+          <span className="text-xs text-slate-500 font-normal">{t('estimatedPrices', lang)}</span>
         </h3>
 
         {sortedCategories.length === 0 ? (
           <p className="text-xs text-slate-500 py-3 text-center">
-            Your shopping list is empty. Add items to see expense breakdown.
+            {t('emptyCategoryBreakdown', lang)}
           </p>
         ) : (
           <div className="space-y-2.5">
@@ -136,7 +136,7 @@ export const CostEstimateScreen: React.FC<CostEstimateScreenProps> = ({
       <div className="space-y-2.5">
         <h3 className="font-bold text-slate-800 text-sm flex items-center gap-1.5">
           <PiggyBank className="w-4 h-4 text-cold-dark" />
-          Grocery Money-Saving Hacks
+          {t('moneySavingHacks', lang)}
         </h3>
 
         <div className="space-y-2">
@@ -148,7 +148,7 @@ export const CostEstimateScreen: React.FC<CostEstimateScreenProps> = ({
               <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                 <h4 className="font-bold text-slate-800 text-xs">{tip.title}</h4>
                 <span className="text-[10px] font-extrabold text-pine bg-mint px-2 py-0.5 rounded-md border border-cold/25">
-                  Save {tip.savings}
+                  {t('saveLabel', lang)} {tip.savings}
                 </span>
               </div>
               <p className="text-[11px] text-slate-600 leading-relaxed">{tip.description}</p>

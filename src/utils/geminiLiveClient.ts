@@ -73,6 +73,7 @@ export class GeminiLiveClient {
           inventory: this.options.inventory || [],
           recipe: this.options.recipe || null,
           voiceName: this.options.voiceName || 'Zephyr',
+          language: this.options.language || 'en',
         }),
       });
 
