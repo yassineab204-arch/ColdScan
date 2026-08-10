@@ -23,11 +23,6 @@ interface HomeScreenProps {
   onQuickScan: () => void;
 }
 
-/**
- * Home = the ColdScan marketing landing page.
- * Every showcase section is driven by real app state (inventory, recipes,
- * shopping list, settings) — no fake demos.
- */
 export const HomeScreen: React.FC<HomeScreenProps> = ({
   inventory,
   recipes,
@@ -45,46 +40,15 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
   return (
     <div className="min-h-screen w-full overflow-x-hidden bg-white">
-      <Hero
-        onNavigate={onNavigate}
-        itemsDetected={inventory.length}
-        expiringCount={expiringCount}
-        recipeCount={recipes.length}
-      />
-
-      <HowItWorks />
-
+      <Hero onNavigate={onNavigate} itemsDetected={inventory.length} expiringCount={expiringCount} recipeCount={recipes.length} lang={lang} />
+      <HowItWorks lang={lang} />
       <RecipeShowcase recipes={recipes} lang={lang} onNavigate={onNavigate} />
-
-      <ShoppingShowcase
-        shoppingList={shoppingList}
-        currency={currency}
-        lang={lang}
-        onNavigate={onNavigate}
-      />
-
-      <WasteStory />
-
+      <ShoppingShowcase shoppingList={shoppingList} currency={currency} lang={lang} onNavigate={onNavigate} />
+      <WasteStory lang={lang} />
       <UseSoonSection inventory={inventory} lang={lang} onNavigate={onNavigate} />
-
-      <AIExperience
-        inventory={inventory}
-        recipes={recipes}
-        lang={lang}
-        onOpenAssistant={() => {
-          if (onOpenAssistant) {
-            onOpenAssistant();
-          } else {
-            onQuickScan();
-          }
-        }}
-        onOpenLiveVoice={onOpenLiveVoice}
-      />
-
-      <ComingSoonSection onNavigate={onNavigate} />
-
-      <FinalCTA onNavigate={onNavigate} />
-
+      <AIExperience inventory={inventory} recipes={recipes} lang={lang} onOpenAssistant={() => { if (onOpenAssistant) onOpenAssistant(); else onQuickScan(); }} onOpenLiveVoice={onOpenLiveVoice} />
+      <ComingSoonSection onNavigate={onNavigate} lang={lang} />
+      <FinalCTA onNavigate={onNavigate} lang={lang} />
       <Footer lang={lang} onNavigate={onNavigate} onUpdateSettings={onUpdateSettings} />
     </div>
   );
