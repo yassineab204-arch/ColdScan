@@ -117,6 +117,40 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Right actions */}
           <div className="flex items-center gap-1.5 sm:gap-2">
+            {/* Quick language toggle: EN / FR / Darija — always visible on
+                every screen size so the language button is one tap away.
+                The full 9-language picker stays in Settings. */}
+            {onSelectLanguage && (
+              <div
+                className="flex items-center gap-0.5 rounded-full bg-ink/[0.04] p-1 ring-1 ring-ink/[0.08]"
+                role="group"
+                aria-label="Language"
+              >
+                <Globe className="ml-1.5 hidden sm:block h-3.5 w-3.5 text-ink/40" />
+                {(
+                  [
+                    { id: 'en', label: 'EN', title: 'Switch to English' },
+                    { id: 'fr', label: 'FR', title: 'Passer en Français' },
+                    { id: 'ar-MA', label: 'MA', title: 'الدارجة المغربية' },
+                  ] as { id: LanguageType; label: string; title: string }[]
+                ).map((l) => (
+                  <button
+                    key={l.id}
+                    onClick={() => onSelectLanguage(l.id)}
+                    title={l.title}
+                    aria-pressed={language === l.id}
+                    className={`rounded-full px-1.5 py-1 text-[10px] font-bold transition-colors sm:px-2 sm:text-[11px] ${
+                      language === l.id
+                        ? 'bg-pine text-cold shadow-[0_2px_8px_-2px_rgba(11,61,46,0.5)]'
+                        : 'text-ink/50 hover:text-ink'
+                    }`}
+                  >
+                    {l.label}
+                  </button>
+                ))}
+              </div>
+            )}
+
             {/* Expiring alert */}
             {expiringCount > 0 && activeTab !== 'inventory' && (
               <button
