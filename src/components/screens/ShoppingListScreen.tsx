@@ -12,7 +12,9 @@ import {
   Sparkles,
   Copy,
   Check,
-  Share2
+  Share2,
+  MapPin,
+  Navigation
 } from 'lucide-react';
 import { ShoppingItem, CategoryType, FoodItem, AppSettings, LanguageType } from '../../types';
 import { convertCurrency } from '../../utils/currency';
@@ -26,6 +28,7 @@ interface ShoppingListScreenProps {
   onRemoveItem: (id: string) => void;
   onMoveBoughtToInventory: () => void;
   onGenerateSmartList: () => void;
+  onNavigateToStores?: () => void;
   isGeneratingList: boolean;
 }
 
@@ -37,6 +40,7 @@ export const ShoppingListScreen: React.FC<ShoppingListScreenProps> = ({
   onRemoveItem,
   onMoveBoughtToInventory,
   onGenerateSmartList,
+  onNavigateToStores,
   isGeneratingList,
 }) => {
   const lang = (settings?.language || 'en') as LanguageType;
@@ -156,6 +160,44 @@ export const ShoppingListScreen: React.FC<ShoppingListScreenProps> = ({
               {t('clearDone', lang)}
             </button>
           </div>
+        )}
+
+        {/* Find nearby stores - ingredient map CTA */}
+        {onNavigateToStores && (
+          <button
+            onClick={onNavigateToStores}
+            className="w-full group relative overflow-hidden rounded-3xl bg-gradient-to-br from-pine via-pine to-pine-deep border border-cold/20 p-[1px] shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200"
+          >
+            <div className="rounded-[calc(1.5rem-1px)] bg-gradient-to-br from-pine to-pine-deep p-4 flex items-center gap-3 text-left">
+              <div className="w-11 h-11 rounded-2xl bg-cold text-pine-deep flex items-center justify-center shrink-0 shadow-sm group-hover:scale-105 transition-transform">
+                <MapPin className="w-5 h-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-sm font-black text-white leading-tight flex items-center gap-1.5">
+                  {t('findStoresTitle', lang)}
+                  <span className="hidden sm:inline-flex items-center gap-1 rounded-full bg-cold text-pine-deep text-[10px] font-black px-1.5 py-0.5">NEW</span>
+                </div>
+                <p className="text-xs font-medium text-white/75 leading-snug line-clamp-2">
+                  {t('findStoresDesc', lang)}
+                </p>
+              </div>
+              <div className="shrink-0 w-9 h-9 rounded-full bg-white/15 text-white flex items-center justify-center group-hover:bg-white group-hover:text-pine transition-colors">
+                <Navigation className="w-4 h-4" />
+              </div>
+            </div>
+            {unboughtList.length > 0 && (
+              <div className="px-4 pb-3 -mt-1 flex flex-wrap gap-1">
+                {unboughtList.slice(0, 3).map((it) => (
+                  <span key={it.id} className="px-2 py-0.5 rounded-full bg-white/10 text-cold text-[11px] font-bold border border-white/10">
+                    {getLocalizedFoodItemName(it.name, lang)}
+                  </span>
+                ))}
+                {unboughtList.length > 3 && (
+                  <span className="px-2 py-0.5 rounded-full bg-white/10 text-white/70 text-[11px] font-bold">+{unboughtList.length - 3}</span>
+                )}
+              </div>
+            )}
+          </button>
         )}
       </div>
 

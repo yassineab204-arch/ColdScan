@@ -16,6 +16,7 @@ import { ScanScreen } from './components/screens/ScanScreen';
 import { InventoryScreen } from './components/screens/InventoryScreen';
 import { RecipesScreen } from './components/screens/RecipesScreen';
 import { ShoppingListScreen } from './components/screens/ShoppingListScreen';
+import { NearbyStoresScreen } from './components/screens/NearbyStoresScreen';
 import { CostEstimateScreen } from './components/screens/CostEstimateScreen';
 import { SettingsScreen } from './components/screens/SettingsScreen';
 
@@ -339,7 +340,18 @@ export default function App() {
             onRemoveItem={handleRemoveShoppingItem}
             onMoveBoughtToInventory={handleMoveBoughtToInventory}
             onGenerateSmartList={handleGenerateSmartList}
+            onNavigateToStores={() => setActiveTab('stores')}
             isGeneratingList={isGeneratingList}
+          />
+        )}
+
+        {activeTab === 'stores' && (
+          <NearbyStoresScreen
+            shoppingList={shoppingList}
+            inventory={inventory}
+            recipes={recipes}
+            language={settings.language}
+            currency={settings.currency}
           />
         )}
 

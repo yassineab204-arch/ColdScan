@@ -72,4 +72,4 @@ export interface AppSettings {
   language: LanguageType;
 }
 
-export type TabType = 'home' | 'scan' | 'inventory' | 'recipes' | 'shopping' | 'cost' | 'settings';
+export type TabType = 'home' | 'scan' | 'inventory' | 'recipes' | 'shopping' | 'stores' | 'cost' | 'settings';
