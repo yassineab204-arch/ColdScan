@@ -1218,17 +1218,26 @@ export const UI_TRANSLATIONS: Record<LanguageType, Record<string, string>> = {
  * marketing copy). Falls back to English per language when missing.
  */
 const EXTRA_UI: Record<string, Record<LanguageType, string>> = {
-  scanMyFridge: {
-    en: 'Scan my fridge',
-    fr: 'Scanner mon frigo',
-    'ar-MA': 'سكاني التلاجة',
-    ar: 'امسح ثلاجتي',
-    es: 'Escanear mi nevera',
-    de: 'Kühlschrank scannen',
-    it: 'Scansiona il mio frigo',
-    pt: 'Escanear o meu frigorífico',
-    ja: '冷蔵庫をスキャン',
-  },
+  scanMyFridge: { en: 'Scan my fridge', fr: 'Scanner mon frigo', 'ar-MA': 'سكانِي التلاجة', ar: 'امسح ثلاجتي', es: 'Escanear mi nevera', de: 'Kühlschrank scannen', it: 'Scansiona il mio frigo', pt: 'Escanear o meu frigorífico', ja: '冷蔵庫をスキャン' },
+  preferredCurrency: { en: 'Preferred currency', fr: 'Devise préférée', 'ar-MA': 'العملة المفضلة', ar: 'العملة المفضلة', es: 'Moneda preferida', de: 'Bevorzugte Währung', it: 'Valuta preferita', pt: 'Moeda preferida', ja: '優先通貨' },
+  expiryAlert: { en: 'Expiry alert threshold', fr: "Seuil d’alerte d’expiration", 'ar-MA': 'تنبيه قرب انتهاء الصلاحية', ar: 'حد تنبيه انتهاء الصلاحية', es: 'Umbral de alerta de caducidad', de: 'Ablaufwarnung', it: 'Soglia avviso scadenza', pt: 'Limite de alerta de validade', ja: '期限アラートのしきい値' },
+  voiceResponses: { en: 'Enable voice responses', fr: 'Activer les réponses vocales', 'ar-MA': 'فعل الردود الصوتية', ar: 'تفعيل الردود الصوتية', es: 'Activar respuestas de voz', de: 'Sprachantworten aktivieren', it: 'Abilita risposte vocali', pt: 'Ativar respostas por voz', ja: '音声応答を有効にする' },
+  voicePersona: { en: 'Voice persona', fr: 'Voix de l’assistant', 'ar-MA': 'صوت المساعد', ar: 'صوت المساعد', es: 'Voz del asistente', de: 'Assistentenstimme', it: "Voce dell'assistente", pt: 'Voz do assistente', ja: 'アシスタントの声' },
+  dietaryGoals: { en: 'Dietary preferences & goals', fr: 'Préférences et objectifs alimentaires', 'ar-MA': 'التفضيلات والأهداف الغذائية', ar: 'التفضيلات والأهداف الغذائية', es: 'Preferencias y objetivos dietéticos', de: 'Ernährungspräferenzen & Ziele', it: 'Preferenze e obiettivi alimentari', pt: 'Preferências e objetivos alimentares', ja: '食事の好みと目標' },
+  contactLinks: { en: 'Contact & links', fr: 'Contact et liens', 'ar-MA': 'التواصل والروابط', ar: 'التواصل والروابط', es: 'Contacto y enlaces', de: 'Kontakt & Links', it: 'Contatti e link', pt: 'Contacto e links', ja: '連絡先とリンク' },
+  demoData: { en: 'Demo data & storage', fr: 'Données de démonstration et stockage', 'ar-MA': 'بيانات التجربة والتخزين', ar: 'بيانات العرض والتخزين', es: 'Datos de demostración y almacenamiento', de: 'Demodaten & Speicher', it: 'Dati demo e archiviazione', pt: 'Dados de demonstração e armazenamento', ja: 'デモデータと保存' },
+  resetDataDescription: { en: 'Reset ColdScan to the initial inventory, recipes, and shopping list for testing.', fr: 'Réinitialisez ColdScan avec l’inventaire, les recettes et la liste de démonstration.', 'ar-MA': 'رجع كولد سكان للمخزون والوصفات ولائحة السويقة التجريبية.', ar: 'أعد ضبط كولد سكان إلى المخزون والوصفات وقائمة التسوق التجريبية.', es: 'Restablece ColdScan al inventario, recetas y lista de prueba.', de: 'ColdScan auf Inventar, Rezepte und Test-Einkaufsliste zurücksetzen.', it: 'Reimposta ColdScan con inventario, ricette e lista demo.', pt: 'Reponha o ColdScan ao inventário, receitas e lista de demonstração.', ja: 'ColdScan を初期の在庫、レシピ、買い物リストにリセットします。' },
+  resetDemoData: { en: 'Reset demo data', fr: 'Réinitialiser les données de démo', 'ar-MA': 'رجع بيانات التجربة', ar: 'إعادة ضبط بيانات العرض', es: 'Restablecer datos de prueba', de: 'Demodaten zurücksetzen', it: 'Reimposta dati demo', pt: 'Repor dados de demonstração', ja: 'デモデータをリセット' },
+  restockBought: { en: 'Restock bought (__count__)', fr: 'Ranger les achats (__count__)', 'ar-MA': 'دخل المشتريات للتلاجة (__count__)', ar: 'أضف المشتريات للثلاجة (__count__)', es: 'Guardar compras (__count__)', de: 'Gekauftes einlagern (__count__)', it: 'Riponi acquisti (__count__)', pt: 'Guardar compras (__count__)', ja: '購入品を補充（__count__）' },
+  clearDone: { en: 'Clear done', fr: 'Effacer terminés', 'ar-MA': 'مسح لي تشرى', ar: 'مسح المكتمل', es: 'Borrar completados', de: 'Erledigte löschen', it: 'Cancella completati', pt: 'Limpar concluídos', ja: '完了を消去' },
+  copied: { en: 'Shopping list copied to clipboard!', fr: 'Liste de courses copiée !', 'ar-MA': 'تنسخات لائحة السويقة!', ar: 'تم نسخ قائمة التسوق!', es: '¡Lista de compra copiada!', de: 'Einkaufsliste kopiert!', it: 'Lista della spesa copiata!', pt: 'Lista de compras copiada!', ja: '買い物リストをコピーしました！' },
+  addItemExample: { en: 'Add item e.g. olive oil, garlic, oats…', fr: 'Ajouter : huile d’olive, ail, avoine…', 'ar-MA': 'زيد حاجة بحال زيت الزيتون، الثوم…', ar: 'أضف عنصراً مثل زيت الزيتون أو الثوم…', es: 'Añade aceite, ajo, avena…', de: 'Hinzufügen, z. B. Öl, Knoblauch, Hafer…', it: 'Aggiungi olio, aglio, avena…', pt: 'Adicione azeite, alho, aveia…', ja: 'オリーブ油、にんにく、オーツなどを追加…' },
+  shoppingEmpty: { en: 'Shopping list is empty', fr: 'La liste de courses est vide', 'ar-MA': 'لائحة السويقة خاوية', ar: 'قائمة التسوق فارغة', es: 'La lista de compra está vacía', de: 'Einkaufsliste ist leer', it: 'La lista della spesa è vuota', pt: 'A lista de compras está vazia', ja: '買い物リストは空です' },
+  shoppingEmptyDescription: { en: 'Add missing ingredients from recipes or use Auto-Fill to restock essentials.', fr: 'Ajoutez les ingrédients manquants ou utilisez le remplissage automatique.', 'ar-MA': 'زيد الخصاص من الوصفات ولا استعمل التعبئة التلقائية.', ar: 'أضف المكونات الناقصة أو استخدم التعبئة التلقائية.', es: 'Añade ingredientes faltantes o usa el rellenado automático.', de: 'Fehlende Zutaten hinzufügen oder automatisch auffüllen.', it: 'Aggiungi ingredienti mancanti o usa il riempimento automatico.', pt: 'Adicione ingredientes em falta ou use o preenchimento automático.', ja: '不足食材を追加するか、自動補充を使いましょう。' },
+  autoGenerate: { en: 'Auto-generate list', fr: 'Générer la liste', 'ar-MA': 'وجد اللائحة تلقائيا', ar: 'إنشاء القائمة تلقائياً', es: 'Generar lista', de: 'Liste automatisch erstellen', it: 'Genera lista', pt: 'Gerar lista', ja: 'リストを自動作成' },
+  voiceGuide: { en: 'Hands-free recipe voice guide', fr: 'Guide vocal mains libres', 'ar-MA': 'دليل الوصفات بالصوت بلا يدين', ar: 'دليل وصفات صوتي دون استخدام اليدين', es: 'Guía de recetas por voz manos libres', de: 'Freihändiger Rezept-Sprachguide', it: 'Guida vocale ricette a mani libere', pt: 'Guia de receitas por voz mãos-livres', ja: 'ハンズフリーの音声レシピガイド' },
+  voiceGuideDescription: { en: 'Ask what to cook, get step-by-step voice guidance, set timers, and ask for substitutions hands-free!', fr: 'Demandez quoi cuisiner, suivez les étapes à la voix et lancez des minuteurs.', 'ar-MA': 'سول شنو تطيب، تبع الخطوات بالصوت، دير مؤقتات وطلب البدائل بلا ما تمس الهاتف.', ar: 'اسأل ماذا تطبخ، واتبع الخطوات بالصوت واضبط المؤقتات دون لمس الهاتف.', es: 'Pregunta qué cocinar, sigue pasos por voz y crea temporizadores sin manos.', de: 'Frage, was du kochen kannst, folge Sprachschritten und stelle Timer.', it: 'Chiedi cosa cucinare, segui i passaggi vocali e imposta timer.', pt: 'Pergunte o que cozinhar, siga passos por voz e defina temporizadores.', ja: '作るものを質問し、音声で手順を聞き、ハンズフリーでタイマーを設定できます。' },
+  talk: { en: 'Talk', fr: 'Parler', 'ar-MA': 'هضر', ar: 'تحدث', es: 'Hablar', de: 'Sprechen', it: 'Parla', pt: 'Falar', ja: '話す' },
 };
 
 export function t(key: string, lang: string = 'en'): string {
