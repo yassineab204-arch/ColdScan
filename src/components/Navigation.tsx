@@ -54,7 +54,7 @@ export const Navigation: React.FC<NavigationProps> = ({
                 }`}>
                   <Icon className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.5]" />
                 </div>
-                <span className={`text-[8px] sm:text-[9px] font-black uppercase tracking-wide sm:tracking-widest whitespace-nowrap mt-1 transition-colors ${
+                <span className={`text-[8px] sm:text-[9px] font-semibold uppercase tracking-wide sm:tracking-widest whitespace-nowrap mt-1 transition-colors ${
                   isActive ? 'text-emerald-700' : 'text-slate-400 group-hover:text-emerald-600'
                 }`}>
                   {tab.label}
@@ -74,12 +74,12 @@ export const Navigation: React.FC<NavigationProps> = ({
               <div className="relative">
                 <Icon className={`w-5 h-5 transition-transform duration-200 ${isActive ? 'stroke-[2.5]' : 'stroke-[1.8]'}`} />
                 {tab.badge && tab.badge > 0 ? (
-                  <span className="absolute -top-1.5 -right-2 bg-rose-600 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center border-2 border-white shadow-xs animate-bounce">
+                  <span className="absolute -top-1.5 -right-2 bg-rose-600 text-white text-[9px] font-semibold w-4 h-4 rounded-full flex items-center justify-center border-2 border-white shadow-xs animate-bounce">
                     {tab.badge > 9 ? '9+' : tab.badge}
                   </span>
                 ) : null}
               </div>
-              <span className={`text-[8px] sm:text-[9px] font-black uppercase tracking-wide sm:tracking-widest whitespace-nowrap mt-1 transition-colors ${
+              <span className={`text-[8px] sm:text-[9px] font-semibold uppercase tracking-wide sm:tracking-widest whitespace-nowrap mt-1 transition-colors ${
                 isActive ? 'text-emerald-700' : 'text-slate-400'
               }`}>
                 {tab.label}

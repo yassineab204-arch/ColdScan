@@ -66,10 +66,10 @@ export const Header: React.FC<HeaderProps> = ({
             <Refrigerator className="w-5 h-5 stroke-[2.5]" />
           </button>
           <div className="min-w-0">
-            <h1 className="font-black tracking-tighter text-emerald-950 text-lg leading-none flex items-center gap-1.5 truncate">
+            <h1 className="font-semibold tracking-tight text-emerald-950 text-lg leading-none flex items-center gap-1.5 truncate">
               <span>{titles[activeTab].title}</span>
               {activeTab === 'home' && (
-                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[8px] font-semibold uppercase tracking-widest bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                   AI
                 </span>
@@ -85,7 +85,7 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Quick Language Toggle Button: EN / FR / Darija. Keep the compact header
               clear on phones; the full picker remains available on Home and Settings. */}
           {onSelectLanguage && (
-            <div className="hidden sm:flex items-center p-0.5 rounded-xl bg-slate-100 border border-slate-200 text-[10px] font-black">
+            <div className="hidden sm:flex items-center p-0.5 rounded-xl bg-slate-100 border border-slate-200 text-[10px] font-semibold">
               <button
                 onClick={() => onSelectLanguage('en')}
                 className={`px-1.5 py-1 rounded-lg transition-all flex items-center gap-0.5 ${
@@ -128,7 +128,7 @@ export const Header: React.FC<HeaderProps> = ({
           {expiringCount > 0 && activeTab !== 'inventory' && (
             <button
               onClick={() => onNavigate('inventory')}
-              className="relative px-2 py-1.5 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 hover:scale-105 active:scale-95 transition-all duration-200 flex items-center gap-1 text-xs font-black shadow-xs"
+              className="relative px-2 py-1.5 rounded-xl bg-rose-50/60 text-rose-700 border border-rose-200 hover:bg-rose-100 hover:scale-105 active:scale-95 transition-all duration-200 flex items-center gap-1 text-xs font-semibold shadow-xs"
               title={`${expiringCount} items expiring soon`}
             >
               <AlertCircle className="w-4 h-4 text-rose-600 animate-pulse" />
@@ -143,7 +143,7 @@ export const Header: React.FC<HeaderProps> = ({
             aria-label={t('askAiTitle', currentLang)}
           >
             <MessageCircle className="w-3.5 h-3.5 text-emerald-700" />
-            <span className="text-[10px] font-black text-emerald-700 uppercase tracking-wider hidden sm:inline">
+            <span className="text-[10px] font-semibold text-emerald-700 uppercase tracking-wider hidden sm:inline">
               {t('askAi', currentLang)}
             </span>
           </button>
@@ -154,7 +154,7 @@ export const Header: React.FC<HeaderProps> = ({
             title="Talk to Voice Assistant"
           >
             <Mic className="w-3.5 h-3.5 text-emerald-700" />
-            <span className="text-[10px] font-black text-emerald-700 uppercase tracking-wider hidden sm:inline">
+            <span className="text-[10px] font-semibold text-emerald-700 uppercase tracking-wider hidden sm:inline">
               {t('askLive', currentLang)}
             </span>
           </button>
