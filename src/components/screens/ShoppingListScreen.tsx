@@ -98,10 +98,10 @@ export const ShoppingListScreen: React.FC<ShoppingListScreenProps> = ({
       )}
 
       {/* Header Cost Summary Card */}
-      <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-xs space-y-4">
-        <div className="flex items-start justify-between">
-          <div>
-            <h2 className="text-3xl font-black tracking-tighter leading-none text-slate-900">
+      <div className="bg-white border border-slate-200 rounded-3xl p-4 sm:p-5 shadow-xs space-y-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <h2 className="text-2xl sm:text-3xl font-black tracking-tighter leading-none text-slate-900">
               {t('shoppingListTitle', lang)}
             </h2>
             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-1">
@@ -109,7 +109,7 @@ export const ShoppingListScreen: React.FC<ShoppingListScreenProps> = ({
             </p>
           </div>
 
-          <div className="text-right">
+          <div className="text-left sm:text-right">
             <span className="text-[10px] font-black uppercase tracking-widest text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md">
               {t('totalEst', lang)}
             </span>
@@ -160,15 +160,16 @@ export const ShoppingListScreen: React.FC<ShoppingListScreenProps> = ({
       </div>
 
       {/* Add Custom Item Input */}
-      <form onSubmit={handleAddCustom} className="flex gap-2">
+      <form onSubmit={handleAddCustom} className="flex items-stretch gap-2">
+
         <input
           type="text"
           value={newItemName}
           onChange={(e) => setNewItemName(e.target.value)}
           placeholder="Add item e.g. Olive Oil, Garlic, Oats..."
-          className="flex-1 px-3.5 py-2.5 bg-white border border-slate-200 rounded-2xl text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-xs"
+          className="min-w-0 flex-1 px-3.5 py-2.5 bg-white border border-slate-200 rounded-2xl text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-xs"
         />
-        <div className="w-24 relative flex items-center">
+        <div className="w-20 sm:w-24 relative flex items-center shrink-0">
           <input
             type="number"
             step="1"
@@ -211,13 +212,13 @@ export const ShoppingListScreen: React.FC<ShoppingListScreenProps> = ({
           {shoppingList.map((item) => (
             <div
               key={item.id}
-              className={`p-3.5 rounded-2xl border transition-all flex items-center justify-between text-xs ${
+              className={`p-3.5 rounded-2xl border transition-all flex items-start gap-2 text-xs ${
                 item.isBought
                   ? 'bg-slate-50 border-slate-200 opacity-60 line-through'
                   : 'bg-white border-slate-200/80 hover:border-emerald-300 shadow-xs'
               }`}
             >
-              <div className="flex items-center gap-3">
+              <div className="flex items-start gap-3 min-w-0 flex-1">
                 <button
                   onClick={() => onToggleBought(item.id)}
                   className="text-emerald-600 hover:scale-110 transition-transform"
@@ -229,8 +230,8 @@ export const ShoppingListScreen: React.FC<ShoppingListScreenProps> = ({
                   )}
                 </button>
 
-                <div>
-                  <div className="font-bold text-slate-800 text-sm">{getLocalizedFoodItemName(item.name, lang)}</div>
+                <div className="min-w-0">
+                  <div className="font-bold text-slate-800 text-sm break-words">{getLocalizedFoodItemName(item.name, lang)}</div>
                   <div className="text-[11px] text-slate-500 font-medium">
                     {getLocalizedCategory(item.category, lang)} • {item.quantity} {item.unit}
                     {item.relatedRecipe && (
@@ -240,8 +241,8 @@ export const ShoppingListScreen: React.FC<ShoppingListScreenProps> = ({
                 </div>
               </div>
 
-              <div className="flex items-center gap-3">
-                <span className="font-black text-emerald-800 bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-100 text-[11px]">
+              <div className="shrink-0 flex items-center gap-1.5">
+                <span className="font-black text-emerald-800 bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-100 text-[11px] whitespace-nowrap">
                   {item.estimatedPrice.toFixed(2)} {currency}
                 </span>
                 <button

@@ -71,14 +71,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       
       {/* Quick Settings & Famous Languages Bar on Home */}
       <div className="bg-white border border-slate-200 rounded-2xl p-3 shadow-xs space-y-2.5">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1.5">
-            <Globe className="w-4 h-4 text-emerald-600" />
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <Globe className="w-4 h-4 text-emerald-600 shrink-0" />
             <span className="text-[10px] font-black uppercase tracking-widest text-slate-700">{t('quickAiLanguage', currentLang)}</span>
           </div>
           <button
             onClick={() => onNavigate('settings')}
-            className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-100 hover:bg-emerald-100 transition-colors"
+            className="shrink-0 flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-100 hover:bg-emerald-100 transition-colors"
           >
             <Settings className="w-3 h-3 text-emerald-600" />
             <span>{t('allSettings', currentLang)}</span>
@@ -117,19 +117,19 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         </div>
 
         <div className="grid grid-cols-3 gap-2 my-2">
-          <div className="bg-white/10 rounded-2xl p-3 border border-white/10 text-center">
-            <p className="text-white/60 text-[9px] font-black uppercase tracking-widest mb-1">{t('fridgeItems', currentLang)}</p>
-            <p className="text-2xl font-black tracking-tighter text-white">{totalItemsCount}</p>
+          <div className="bg-white/10 rounded-2xl p-2 sm:p-3 border border-white/10 text-center">
+            <p className="text-white/60 text-[8px] sm:text-[9px] font-black uppercase tracking-widest leading-tight mb-1">{t('fridgeItems', currentLang)}</p>
+            <p className="text-xl sm:text-2xl font-black tracking-tighter text-white">{totalItemsCount}</p>
           </div>
 
-          <div className="bg-white/10 rounded-2xl p-3 border border-white/10 text-center">
-            <p className="text-white/60 text-[9px] font-black uppercase tracking-widest mb-1">{t('fresh', currentLang)}</p>
-            <p className="text-2xl font-black tracking-tighter text-emerald-400">{freshItems.length}</p>
+          <div className="bg-white/10 rounded-2xl p-2 sm:p-3 border border-white/10 text-center">
+            <p className="text-white/60 text-[8px] sm:text-[9px] font-black uppercase tracking-widest leading-tight mb-1">{t('fresh', currentLang)}</p>
+            <p className="text-xl sm:text-2xl font-black tracking-tighter text-emerald-400">{freshItems.length}</p>
           </div>
 
-          <div className="bg-white/10 rounded-2xl p-3 border border-white/10 text-center">
-            <p className="text-white/60 text-[9px] font-black uppercase tracking-widest mb-1">{t('soonToExpire', currentLang)}</p>
-            <p className="text-2xl font-black tracking-tighter text-amber-400">{expiringItems.length}</p>
+          <div className="bg-white/10 rounded-2xl p-2 sm:p-3 border border-white/10 text-center">
+            <p className="text-white/60 text-[8px] sm:text-[9px] font-black uppercase tracking-widest leading-tight mb-1">{t('soonToExpire', currentLang)}</p>
+            <p className="text-xl sm:text-2xl font-black tracking-tighter text-amber-400">{expiringItems.length}</p>
           </div>
         </div>
 
@@ -147,7 +147,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         <div className="grid grid-cols-2 gap-2 mt-1">
           <button
             onClick={onQuickScan}
-            className="py-3 px-3 rounded-2xl bg-emerald-500 text-slate-900 font-black text-xs uppercase tracking-widest flex items-center justify-center gap-1.5 hover:bg-emerald-400 hover:scale-[1.03] active:scale-[0.97] transition-all duration-200 shadow-md hover:shadow-emerald-500/30"
+            className="min-w-0 py-3 px-2 sm:px-3 rounded-2xl bg-emerald-500 text-slate-900 font-black text-[10px] sm:text-xs uppercase tracking-widest flex items-center justify-center gap-1.5 whitespace-nowrap hover:bg-emerald-400 hover:scale-[1.03] active:scale-[0.97] transition-all duration-200 shadow-md hover:shadow-emerald-500/30"
           >
             <Camera className="w-4 h-4" />
             {t('scanNow', currentLang)}
@@ -155,7 +155,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
           <button
             onClick={onOpenLiveVoice}
-            className="py-3 px-3 rounded-2xl bg-white/15 text-white font-black text-xs uppercase tracking-widest border border-white/20 flex items-center justify-center gap-1.5 hover:bg-white/25 hover:scale-[1.03] active:scale-[0.97] transition-all duration-200 shadow-xs"
+            className="min-w-0 py-3 px-2 sm:px-3 rounded-2xl bg-white/15 text-white font-black text-[10px] sm:text-xs uppercase tracking-widest border border-white/20 flex items-center justify-center gap-1.5 whitespace-nowrap hover:bg-white/25 hover:scale-[1.03] active:scale-[0.97] transition-all duration-200 shadow-xs"
           >
             <Mic className="w-4 h-4 text-emerald-400" />
             {t('liveVoice', currentLang)}
@@ -165,13 +165,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
       {/* Main Section Header: Bold Typography Style */}
       <div className="bg-white rounded-3xl p-5 shadow-xs border border-slate-200">
-        <div className="flex justify-between items-end mb-4">
-          <h2 className="text-3xl font-black tracking-tighter leading-none text-slate-900">
+        <div className="flex justify-between items-end gap-2 mb-4">
+          <h2 className="text-2xl sm:text-3xl font-black tracking-tighter leading-none text-slate-900">
             {t('yourFridge', currentLang)}
           </h2>
           <button
             onClick={() => onNavigate('inventory')}
-            className="text-emerald-700 font-black text-xs uppercase tracking-widest hover:underline"
+            className="shrink-0 text-emerald-700 font-black text-[10px] sm:text-xs uppercase tracking-widest hover:underline"
           >
             {t('viewAll', currentLang)} ({inventory.length})
           </button>

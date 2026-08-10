@@ -281,17 +281,17 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({
               </p>
             </div>
 
-            <div className="flex items-center justify-center gap-3 pt-2">
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-2.5 pt-2">
               <button
                 onClick={startCamera}
-                className="px-4 py-3 rounded-2xl bg-emerald-500 text-slate-900 font-black text-xs uppercase tracking-widest flex items-center gap-1.5 shadow-md hover:bg-emerald-400 hover:scale-105 active:scale-95 transition-all duration-200 hover:shadow-emerald-500/30"
+                className="w-full sm:w-auto justify-center px-4 py-3 rounded-2xl bg-emerald-500 text-slate-900 font-black text-xs uppercase tracking-widest flex items-center gap-1.5 shadow-md hover:bg-emerald-400 hover:scale-105 active:scale-95 transition-all duration-200 hover:shadow-emerald-500/30"
               >
                 <Camera className="w-4 h-4" />
                 {t('liveCamera', lang)}
               </button>
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="px-4 py-3 rounded-2xl bg-slate-800 text-slate-200 border border-slate-700 font-black text-xs uppercase tracking-widest flex items-center gap-1.5 hover:bg-slate-700 hover:scale-105 active:scale-95 transition-all duration-200"
+                className="w-full sm:w-auto justify-center px-4 py-3 rounded-2xl bg-slate-800 text-slate-200 border border-slate-700 font-black text-xs uppercase tracking-widest flex items-center gap-1.5 hover:bg-slate-700 hover:scale-105 active:scale-95 transition-all duration-200"
               >
                 <Upload className="w-4 h-4" />
                 {t('uploadPhoto', lang)}
@@ -384,10 +384,10 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({
             {scanResult.itemsFound.map((item, idx) => (
               <div
                 key={idx}
-                className="p-3 bg-slate-50 rounded-2xl border border-slate-200/80 flex items-center justify-between text-xs"
+                className="p-3 bg-slate-50 rounded-2xl border border-slate-200/80 flex items-start justify-between gap-2 text-xs"
               >
-                <div className="space-y-0.5">
-                  <div className="font-bold text-slate-800 flex items-center gap-1.5">
+                <div className="space-y-0.5 min-w-0">
+                  <div className="font-bold text-slate-800 flex items-start gap-1.5 flex-wrap break-words">
                     {item.name}
                     <span className="text-[10px] text-slate-500 font-normal">
                       ({item.quantity} {item.unit})
@@ -401,7 +401,7 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({
                   )}
                 </div>
 
-                <div>
+                <div className="shrink-0">
                   {item.freshness === 'soon_to_expire' && (
                     <span className="px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 font-bold text-[10px] border border-amber-200 flex items-center gap-1">
                       <AlertCircle className="w-3 h-3 text-amber-600" />

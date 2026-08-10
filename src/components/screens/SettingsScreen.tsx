@@ -63,7 +63,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
       
       {/* Page Title Card */}
       <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-xs">
-        <h2 className="text-3xl font-black tracking-tighter leading-none text-slate-900">
+        <h2 className="text-2xl sm:text-3xl font-black tracking-tighter leading-none text-slate-900">
           {t('settingsTitle', lang)}
         </h2>
         <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-1">
@@ -111,15 +111,15 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
         {/* Currency Setting */}
         <div className="space-y-2 pt-3 border-t border-slate-100">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-1.5">
-              <DollarSign className="w-4 h-4 text-emerald-600" />
+              <DollarSign className="w-4 h-4 text-emerald-600 shrink-0" />
               Preferred Currency
             </label>
             <select
               value={settings.currency || 'DH'}
               onChange={(e) => onUpdateSettings({ currency: e.target.value })}
-              className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-black text-slate-800"
+              className="w-full sm:w-auto px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-black text-slate-800"
             >
               <option value="DH">DH (Dirhams)</option>
               <option value="MAD">MAD (Moroccan Dirham)</option>
@@ -150,9 +150,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
         {/* Voice Assistant Preferences */}
         <div className="space-y-3 pt-3 border-t border-slate-100">
-          <div className="flex items-center justify-between">
-            <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-1.5">
-              <Volume2 className="w-4 h-4 text-emerald-600" />
+          <div className="flex items-start justify-between gap-3">
+            <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-start gap-1.5">
+              <Volume2 className="w-4 h-4 text-emerald-600 shrink-0" />
               Enable Voice Responses
             </label>
             <input
@@ -224,7 +224,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
             <a
               href={`mailto:${BUSINESS_EMAIL}?subject=ColdScan%20Business%20Inquiry`}
-              className="px-3 py-2 rounded-xl text-[13px] font-black uppercase border bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100 inline-flex items-center gap-3"
+              className="px-3 py-2 rounded-xl text-[13px] font-black uppercase border bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100 inline-flex items-center gap-3 break-all"
             >
               Business Email — {BUSINESS_EMAIL}
             </a>

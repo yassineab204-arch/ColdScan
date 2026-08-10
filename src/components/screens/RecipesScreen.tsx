@@ -69,9 +69,9 @@ export const RecipesScreen: React.FC<RecipesScreenProps> = ({
     <div className="space-y-4 pb-20 max-w-md mx-auto">
       
       {/* Header Banner */}
-      <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-xs flex items-center justify-between">
-        <div>
-          <h2 className="text-3xl font-black tracking-tighter leading-none text-slate-900">
+      <div className="bg-white border border-slate-200 rounded-3xl p-4 sm:p-5 shadow-xs flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <h2 className="text-2xl sm:text-3xl font-black tracking-tighter leading-none text-slate-900">
             {t('recipesTitle', lang)}
           </h2>
           <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-1">
@@ -82,7 +82,7 @@ export const RecipesScreen: React.FC<RecipesScreenProps> = ({
         <button
           onClick={onRefreshRecipes}
           disabled={isGenerating}
-          className="px-4 py-3 rounded-2xl bg-slate-900 text-emerald-400 font-black text-xs uppercase tracking-widest flex items-center gap-1.5 hover:bg-slate-800 hover:scale-105 active:scale-95 transition-all duration-200 shadow-xs disabled:opacity-50"
+          className="w-full sm:w-auto justify-center px-4 py-3 rounded-2xl bg-slate-900 text-emerald-400 font-black text-xs uppercase tracking-widest flex items-center gap-1.5 hover:bg-slate-800 hover:scale-105 active:scale-95 transition-all duration-200 shadow-xs disabled:opacity-50"
           title="Generate fresh recipes"
         >
           <RefreshCw className={`w-4 h-4 text-emerald-400 ${isGenerating ? 'animate-spin' : ''}`} />
@@ -95,7 +95,7 @@ export const RecipesScreen: React.FC<RecipesScreenProps> = ({
         <div className="absolute right-0 top-0 translate-x-4 -translate-y-4 w-32 h-32 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none" />
         
         <div className="flex items-start justify-between gap-3 relative z-10">
-          <div className="space-y-1">
+          <div className="space-y-1 min-w-0">
             <div className="flex items-center gap-2">
               <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-mono text-[9px] font-black uppercase tracking-wider border border-emerald-500/30 flex items-center gap-1">
                 <Sparkles className="w-3 h-3 text-emerald-400" />
@@ -201,7 +201,7 @@ export const RecipesScreen: React.FC<RecipesScreenProps> = ({
               </div>
 
               {/* Cooking Stats Pills */}
-              <div className="flex items-center gap-3 text-[10px] font-black uppercase tracking-widest text-slate-500 bg-slate-50 p-3 rounded-2xl border border-slate-100">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-black uppercase tracking-widest text-slate-500 bg-slate-50 p-3 rounded-2xl border border-slate-100">
                 <div className="flex items-center gap-1">
                   <Clock className="w-3.5 h-3.5 text-emerald-600" />
                   <span>{recipe.cookTimeMinutes} MINS</span>
@@ -355,21 +355,21 @@ export const RecipesScreen: React.FC<RecipesScreenProps> = ({
                 </ol>
               </div>
 
-              <div className="pt-2 flex justify-between items-center border-t border-slate-100">
+              <div className="pt-2 flex flex-col-reverse sm:flex-row sm:justify-between sm:items-center gap-2 border-t border-slate-100">
                 <button
                   onClick={() => {
                     const r = selectedRecipe;
                     setSelectedRecipe(null);
                     setCookingRecipe(r);
                   }}
-                  className="px-4 py-2 rounded-xl bg-slate-900 text-emerald-400 font-black text-xs uppercase tracking-widest inline-flex items-center gap-1.5"
+                  className="w-full sm:w-auto justify-center px-4 py-2 rounded-xl bg-slate-900 text-emerald-400 font-black text-xs uppercase tracking-widest inline-flex items-center gap-1.5"
                 >
                   <ChefHat className="w-4 h-4" />
                   Start Interactive Cook Mode
                 </button>
                 <button
                   onClick={() => setSelectedRecipe(null)}
-                  className="px-4 py-2 rounded-xl bg-slate-100 text-slate-700 font-bold text-xs hover:bg-slate-200"
+                  className="w-full sm:w-auto px-4 py-2 rounded-xl bg-slate-100 text-slate-700 font-bold text-xs hover:bg-slate-200"
                 >
                   Close
                 </button>

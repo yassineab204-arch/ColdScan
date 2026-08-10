@@ -66,10 +66,10 @@ export const CostEstimateScreen: React.FC<CostEstimateScreenProps> = ({
     <div className="space-y-4 pb-20 max-w-md mx-auto">
       
       {/* Top Cost & Savings Summary */}
-      <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-xs space-y-4">
-        <div className="flex items-start justify-between">
-          <div>
-            <h2 className="text-3xl font-black tracking-tighter leading-none text-slate-900">
+      <div className="bg-white border border-slate-200 rounded-3xl p-4 sm:p-5 shadow-xs space-y-4">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <h2 className="text-2xl sm:text-3xl font-black tracking-tighter leading-none text-slate-900">
               {t('financialSavingsTitle', lang)}
             </h2>
             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-1">
@@ -145,7 +145,7 @@ export const CostEstimateScreen: React.FC<CostEstimateScreenProps> = ({
               key={idx}
               className="p-3.5 bg-white border border-slate-200/80 rounded-2xl shadow-xs space-y-1 hover:border-emerald-300 transition-colors"
             >
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                 <h4 className="font-bold text-slate-800 text-xs">{tip.title}</h4>
                 <span className="text-[10px] font-extrabold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100">
                   Save {tip.savings}
