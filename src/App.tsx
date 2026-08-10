@@ -10,6 +10,9 @@ import { Header } from './components/Header';
 import { Navigation } from './components/Navigation';
 import { LiveVoiceModal } from './components/LiveVoiceModal';
 import { AssistantChatModal } from './components/AssistantChatModal';
+import { WelcomeTutorial } from './components/WelcomeTutorial';
+import { TrialExpiredScreen } from './components/TrialExpiredScreen';
+import { TrialBanner } from './components/TrialBanner';
 
 import { HomeScreen } from './components/screens/HomeScreen';
 import { ScanScreen } from './components/screens/ScanScreen';
@@ -21,11 +24,25 @@ import { CostEstimateScreen } from './components/screens/CostEstimateScreen';
 import { SettingsScreen } from './components/screens/SettingsScreen';
 
 import { convertCurrency } from './utils/currency';
+import { t } from './utils/i18n';
+import {
+  loadTrialState,
+  saveTrialState,
+  isAccessLocked,
+  trialDaysLeft,
+  redeemAccessCode,
+  TrialState,
+} from './utils/trial';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabType>('home');
   const [isLiveVoiceOpen, setIsLiveVoiceOpen] = useState(false);
   const [isAssistantOpen, setIsAssistantOpen] = useState(false);
+
+  // Free-trial / access state (starts the clock on the very first open)
+  const [trial, setTrial] = useState<TrialState>(() => loadTrialState());
+  const [showTutorial, setShowTutorial] = useState(() => !trial.tutorialSeen);
+  const [accessNotice, setAccessNotice] = useState<string | null>(null);
 
   // Persistent State
   const [inventory, setInventory] = useState<FoodItem[]>(() => {
@@ -85,9 +102,46 @@ export default function App() {
     localStorage.setItem('coldscan_settings', JSON.stringify(settings));
   }, [settings]);
 
+  useEffect(() => {
+    saveTrialState(trial);
+  }, [trial]);
+
   // Derived counts
   const expiringCount = inventory.filter((i) => i.freshness === 'soon_to_expire').length;
   const shoppingCount = shoppingList.filter((i) => !i.isBought).length;
+
+  // Trial / access gate. The landing page ('home') always stays open so people
+  // can still read about ColdScan and reach the contact links; the product tabs
+  // are what lock.
+  const daysLeft = trialDaysLeft(trial);
+  const accessLocked = isAccessLocked(trial);
+  const showLockScreen = accessLocked && activeTab !== 'home';
+  const lang = settings.language || 'en';
+
+  const handleFinishTutorial = () => {
+    setShowTutorial(false);
+    setTrial((prev) => ({ ...prev, tutorialSeen: true }));
+  };
+
+  const handleRedeemCode = (code: string): boolean => {
+    const result = redeemAccessCode(code, trial);
+    if (!result.ok) return false;
+
+    setTrial(result.state);
+    setAccessNotice(
+      result.granted === 'unlock'
+        ? t('trialCodeUnlocked', lang)
+        : t('trialCodeExtended', lang).replace('__count__', String(result.days ?? 0))
+    );
+    return true;
+  };
+
+  // Auto-dismiss the unlock confirmation
+  useEffect(() => {
+    if (!accessNotice) return;
+    const timer = setTimeout(() => setAccessNotice(null), 4000);
+    return () => clearTimeout(timer);
+  }, [accessNotice]);
 
   // Inventory Actions
   const handleAddItemsFromScan = (newItems: FoodItem[]) => {
@@ -261,8 +315,20 @@ export default function App() {
       setRecipes(DEFAULT_RECIPES);
       setShoppingList(DEFAULT_SHOPPING_LIST);
       setSettings(DEFAULT_SETTINGS);
+      // Clear demo data but keep the trial/access state — resetting the demo
+      // must not silently hand out a brand new free trial.
       localStorage.clear();
+      saveTrialState(trial);
     }
+  };
+
+  /** Opens an AI feature, or the contact screen when the trial is over. */
+  const openGated = (open: () => void) => {
+    if (accessLocked) {
+      setActiveTab('settings');
+      return;
+    }
+    open();
   };
 
   return (
@@ -272,8 +338,8 @@ export default function App() {
         activeTab={activeTab}
         expiringCount={expiringCount}
         language={settings.language}
-        onOpenLiveVoice={() => setIsLiveVoiceOpen(true)}
-        onOpenAssistant={() => setIsAssistantOpen(true)}
+        onOpenLiveVoice={() => openGated(() => setIsLiveVoiceOpen(true))}
+        onOpenAssistant={() => openGated(() => setIsAssistantOpen(true))}
         onNavigate={(tab) => setActiveTab(tab)}
         onSelectLanguage={(lang) => setSettings((prev) => ({ ...prev, language: lang }))}
       />
@@ -286,6 +352,25 @@ export default function App() {
             : 'max-w-6xl px-3 sm:px-4 py-4 pb-[calc(6rem+env(safe-area-inset-bottom))] bg-[#F4F8F5]'
         }`}
       >
+        {/* Trial status strip (app screens only — the landing page has its own CTAs) */}
+        {activeTab !== 'home' && !showLockScreen && (
+          <TrialBanner
+            daysLeft={daysLeft}
+            unlocked={trial.unlocked}
+            lang={lang}
+            onContact={() => setActiveTab('settings')}
+          />
+        )}
+
+        {/* Trial over: the product tabs are replaced by the contact screen */}
+        {showLockScreen && (
+          <TrialExpiredScreen
+            lang={lang}
+            onRedeemCode={handleRedeemCode}
+            onBackHome={() => setActiveTab('home')}
+          />
+        )}
+
         {activeTab === 'home' && (
           <HomeScreen
             inventory={inventory}
@@ -294,13 +379,13 @@ export default function App() {
             settings={settings}
             onUpdateSettings={(newSettings) => setSettings((prev) => ({ ...prev, ...newSettings }))}
             onNavigate={(tab) => setActiveTab(tab)}
-            onOpenLiveVoice={() => setIsLiveVoiceOpen(true)}
-            onOpenAssistant={() => setIsAssistantOpen(true)}
+            onOpenLiveVoice={() => openGated(() => setIsLiveVoiceOpen(true))}
+            onOpenAssistant={() => openGated(() => setIsAssistantOpen(true))}
             onQuickScan={() => setActiveTab('scan')}
           />
         )}
 
-        {activeTab === 'scan' && (
+        {activeTab === 'scan' && !showLockScreen && (
           <ScanScreen
             settings={settings}
             onAddItemsToInventory={handleAddItemsFromScan}
@@ -308,7 +393,7 @@ export default function App() {
           />
         )}
 
-        {activeTab === 'inventory' && (
+        {activeTab === 'inventory' && !showLockScreen && (
           <InventoryScreen
             inventory={inventory}
             settings={settings}
@@ -320,7 +405,7 @@ export default function App() {
           />
         )}
 
-        {activeTab === 'recipes' && (
+        {activeTab === 'recipes' && !showLockScreen && (
           <RecipesScreen
             recipes={recipes}
             inventory={inventory}
@@ -331,7 +416,7 @@ export default function App() {
           />
         )}
 
-        {activeTab === 'shopping' && (
+        {activeTab === 'shopping' && !showLockScreen && (
           <ShoppingListScreen
             shoppingList={shoppingList}
             settings={settings}
@@ -345,7 +430,7 @@ export default function App() {
           />
         )}
 
-        {activeTab === 'stores' && (
+        {activeTab === 'stores' && !showLockScreen && (
           <NearbyStoresScreen
             shoppingList={shoppingList}
             inventory={inventory}
@@ -355,7 +440,7 @@ export default function App() {
           />
         )}
 
-        {activeTab === 'cost' && (
+        {activeTab === 'cost' && !showLockScreen && (
           <CostEstimateScreen
             shoppingList={shoppingList}
             inventory={inventory}
@@ -363,18 +448,31 @@ export default function App() {
           />
         )}
 
-        {activeTab === 'settings' && (
+        {activeTab === 'settings' && !showLockScreen && (
           <SettingsScreen
             settings={settings}
             onUpdateSettings={handleUpdateSettings}
             onResetData={handleResetData}
+            trialDaysLeft={daysLeft}
+            trialUnlocked={trial.unlocked}
+            onReplayTutorial={() => setShowTutorial(true)}
           />
         )}
       </main>
 
+      {/* First-open tutorial */}
+      <WelcomeTutorial isOpen={showTutorial} lang={lang} onFinish={handleFinishTutorial} />
+
+      {/* Access code confirmation */}
+      {accessNotice && (
+        <div className="fixed left-1/2 top-20 z-[80] -translate-x-1/2 rounded-full bg-pine px-5 py-3 text-sm font-bold text-cold shadow-[0_20px_50px_-18px_rgba(11,61,46,0.8)]">
+          {accessNotice}
+        </div>
+      )}
+
       {/* Live Voice Overlay Modal */}
       <LiveVoiceModal
-        isOpen={isLiveVoiceOpen}
+        isOpen={isLiveVoiceOpen && !accessLocked}
         onClose={() => setIsLiveVoiceOpen(false)}
         inventory={inventory}
         settings={settings}
@@ -391,7 +489,7 @@ export default function App() {
 
       {/* Text AI Assistant Modal */}
       <AssistantChatModal
-        isOpen={isAssistantOpen}
+        isOpen={isAssistantOpen && !accessLocked}
         onClose={() => setIsAssistantOpen(false)}
         inventory={inventory}
         settings={settings}

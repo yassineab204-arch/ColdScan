@@ -18,6 +18,11 @@ interface SettingsScreenProps {
   settings: AppSettings;
   onUpdateSettings: (newSettings: Partial<AppSettings>) => void;
   onResetData: () => void;
+  /** Days remaining in the free trial (0 when it has ended). */
+  trialDaysLeft?: number;
+  /** True when the user redeemed an access code. */
+  trialUnlocked?: boolean;
+  onReplayTutorial?: () => void;
 }
 
 const DIETARY_OPTIONS = [
@@ -47,6 +52,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   settings,
   onUpdateSettings,
   onResetData,
+  trialDaysLeft = 0,
+  trialUnlocked = false,
+  onReplayTutorial,
 }) => {
   const toggleDietary = (item: string) => {
     const current = settings.dietaryPreferences;
@@ -231,6 +239,68 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           </div>
         </div>
 
+      </div>
+
+      {/* Access / Free trial Card */}
+      <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-xs space-y-3">
+        <h3 className="font-black text-slate-900 text-sm uppercase tracking-tight flex items-center gap-2">
+          <ShieldCheck className="w-4 h-4 text-cold-dark" />
+          {t('trialKeepAccess', lang)}
+        </h3>
+
+        <div
+          className={`rounded-2xl px-4 py-3 text-xs font-black uppercase tracking-wider ${
+            trialUnlocked
+              ? 'bg-mint text-pine'
+              : trialDaysLeft === 0
+                ? 'bg-rose-50 text-rose-700'
+                : trialDaysLeft <= 2
+                  ? 'bg-amber-50 text-amber-800'
+                  : 'bg-mint text-pine'
+          }`}
+        >
+          {trialUnlocked
+            ? t('trialFullAccess', lang)
+            : trialDaysLeft === 0
+              ? t('trialEndedTitle', lang)
+              : trialDaysLeft <= 1
+                ? t('trialBannerLastDay', lang)
+                : t('trialBannerDays', lang).replace('__count__', String(trialDaysLeft))}
+        </div>
+
+        {!trialUnlocked && (
+          <>
+            <p className="text-xs text-slate-500 leading-relaxed font-medium">
+              {t('trialEndedBody', lang)}
+            </p>
+            <div className="flex flex-col gap-2">
+              <a
+                href={INSTAGRAM_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full py-3 px-4 rounded-2xl bg-cold text-pine-deep font-black text-xs uppercase tracking-widest hover:bg-cold/90 flex items-center justify-center gap-2"
+              >
+                {t('trialContactInstagram', lang)}
+              </a>
+              <a
+                href={`mailto:${BUSINESS_EMAIL}?subject=ColdScan%20access%20request`}
+                className="w-full py-3 px-4 rounded-2xl bg-slate-50 border border-slate-200 text-slate-700 font-black text-xs uppercase tracking-widest hover:bg-slate-100 flex items-center justify-center gap-2"
+              >
+                {t('trialContactEmail', lang)}
+              </a>
+            </div>
+          </>
+        )}
+
+        {onReplayTutorial && (
+          <button
+            onClick={onReplayTutorial}
+            className="w-full py-3 px-4 rounded-2xl bg-slate-50 border border-slate-200 text-slate-700 font-black text-xs uppercase tracking-widest hover:bg-slate-100 flex items-center justify-center gap-2"
+          >
+            <Sparkles className="w-4 h-4" />
+            {t('tourReplay', lang)}
+          </button>
+        )}
       </div>
 
       {/* Data Management Card */}
