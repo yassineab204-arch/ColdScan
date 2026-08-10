@@ -51,12 +51,19 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     return res.status(400).json({ error: 'A valid location and search radius are required.' });
   }
 
+  const roundedRadius = Math.round(radius);
   const query = `[out:json][timeout:20];
 (
-  nwr["shop"~"^(supermarket|grocery|convenience|greengrocer|bakery|pastry|butcher|deli|dairy|cheese|farm|seafood|general|food|beverages)$"](around:${Math.round(radius)},${lat},${lon});
-  nwr["amenity"="marketplace"](around:${Math.round(radius)},${lat},${lon});
-);
-out center 100;`;
+  nwr["brand"~"^(Carrefour|BIM|Supeco|Marjane|Aswak Assalam|Atacadao|Kazyon|Acima)$",i](around:${roundedRadius},${lat},${lon});
+  nwr["operator"~"^(Carrefour|BIM|Supeco|Marjane|Aswak Assalam|Atacadao|Kazyon|Acima)$",i](around:${roundedRadius},${lat},${lon});
+  nwr["name"~"^(Carrefour|BIM|Supeco|Marjane|Aswak Assalam|Atacadao|Kazyon|Acima)( |$)",i](around:${roundedRadius},${lat},${lon});
+)->.chains;
+.chains out center;
+(
+  nwr["shop"~"^(supermarket|grocery|convenience|greengrocer|bakery|pastry|butcher|deli|dairy|cheese|farm|seafood|general|food|beverages|wholesale)$"](around:${roundedRadius},${lat},${lon});
+  nwr["amenity"="marketplace"](around:${roundedRadius},${lat},${lon});
+)->.foodStores;
+.foodStores out center 160;`;
 
   try {
     const data = await queryOverpass(query);

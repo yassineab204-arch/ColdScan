@@ -8,7 +8,6 @@ import {
   LocateFixed,
   Store,
   ShoppingBag,
-  Clock3,
   ExternalLink,
   Loader2,
   AlertTriangle,
@@ -56,6 +55,15 @@ interface NearbyStore {
   distanceMeters: number;
   tags: Record<string, string>;
   categoriesCovered: string[]; // human categories like Produce, Dairy & Eggs etc.
+  isFeaturedMarket: boolean;
+}
+
+const FEATURED_MARKET_PATTERN = /\b(carrefour|bim|supeco|marjane|aswak assalam|atacadao|kazyon|acima)\b/i;
+
+function isFeaturedMarket(tags: Record<string, string>, name: string): boolean {
+  return FEATURED_MARKET_PATTERN.test(
+    [name, tags.brand, tags.operator, tags.banner].filter(Boolean).join(' ')
+  );
 }
 
 function haversine(a: LatLng, b: LatLng): number {
@@ -76,9 +84,20 @@ function formatDistance(m: number): string {
   return `${(m / 1000).toFixed(m < 10000 ? 1 : 0)} km`;
 }
 
+function formatStoreDistance(
+  meters: number,
+  source: LocationSource | null,
+  lang: LanguageType
+): string {
+  return t(source === 'device' ? 'mapDistanceFromYou' : 'mapDistanceFromArea', lang).replace(
+    '__distance__',
+    formatDistance(meters)
+  );
+}
+
 function shopToCategories(shop: string, amenity?: string): string[] {
   const s = (shop || amenity || '').toLowerCase();
-  if (['supermarket', 'grocery', 'convenience', 'general', 'marketplace', 'supermarche'].includes(s)) {
+  if (['supermarket', 'grocery', 'convenience', 'general', 'marketplace', 'supermarche', 'wholesale'].includes(s)) {
     return ['Produce', 'Dairy & Eggs', 'Proteins', 'Condiments & Sauces', 'Beverages', 'Bakery', 'Pantry & Other'];
   }
   if (s === 'greengrocer' || s === 'farm' || s === 'fruit') return ['Produce'];
@@ -205,12 +224,25 @@ export const NearbyStoresScreen: React.FC<NearbyStoresScreenProps> = ({
     return found?.category || 'Pantry & Other';
   };
 
+  // Recalculate from the latest device fix (or manually searched point) instead
+  // of keeping the distance from the original response. This corrects values
+  // immediately when the browser refines a coarse location.
+  const storesByDistance = useMemo(() => {
+    if (!userPos) return stores;
+    return stores
+      .map((store) => ({
+        ...store,
+        distanceMeters: Math.round(haversine(userPos, { lat: store.lat, lon: store.lon })),
+      }))
+      .sort((a, b) => a.distanceMeters - b.distanceMeters);
+  }, [stores, userPos]);
+
   // Filter stores by ingredient category
   const filteredStores = useMemo(() => {
-    if (ingredientFilter === 'all') return stores;
+    if (ingredientFilter === 'all') return storesByDistance;
     const cat = neededCategoryOf(ingredientFilter);
-    return stores.filter(s => s.categoriesCovered.includes(cat) || s.categoriesCovered.includes('Pantry & Other') && cat === 'Pantry & Other' || s.shop === 'supermarket' || s.shop === 'grocery');
-  }, [stores, ingredientFilter, neededIngredients]);
+    return storesByDistance.filter(s => s.categoriesCovered.includes(cat) || s.categoriesCovered.includes('Pantry & Other') && cat === 'Pantry & Other' || s.shop === 'supermarket' || s.shop === 'grocery');
+  }, [storesByDistance, ingredientFilter, neededIngredients]);
 
   const selectedStore = filteredStores.find(s => s.id === selectedStoreId) || null;
 
@@ -393,9 +425,13 @@ export const NearbyStoresScreen: React.FC<NearbyStoresScreenProps> = ({
           if (!Number.isFinite(storeLat) || !Number.isFinite(storeLon)) return null;
 
           const tags = element.tags && typeof element.tags === 'object' ? element.tags : {};
-          const shop = (tags.shop || tags.amenity || 'shop').toLowerCase();
           const street = tags['addr:street'] || '';
-          const displayName = tags.name || `${shopLabel(shop, tags.amenity, lang)}${street ? ` · ${street}` : ''}`;
+          const knownName = tags.name || tags.brand || tags.operator || '';
+          const featuredMarket = isFeaturedMarket(tags, knownName);
+          // Some chain branches are missing a shop tag in OSM. Their verified
+          // brand/name still identifies them as a supermarket.
+          const shop = (tags.shop || (featuredMarket ? 'supermarket' : tags.amenity) || 'shop').toLowerCase();
+          const displayName = knownName || `${shopLabel(shop, tags.amenity, lang)}${street ? ` · ${street}` : ''}`;
           const addressParts = [street, tags['addr:housenumber'], tags['addr:city']].filter(Boolean);
           const address = addressParts.join(', ') || tags['addr:full'] || tags['addr:place'] || undefined;
 
@@ -410,14 +446,23 @@ export const NearbyStoresScreen: React.FC<NearbyStoresScreenProps> = ({
             distanceMeters: Math.round(haversine(center, { lat: storeLat, lon: storeLon })),
             tags,
             categoriesCovered: shopToCategories(shop, tags.amenity),
+            isFeaturedMarket: featuredMarket,
           };
         })
         .filter((store): store is NearbyStore => store !== null)
-        .sort((a, b) => a.distanceMeters - b.distanceMeters)
-        .slice(0, 80);
+        .sort((a, b) => a.distanceMeters - b.distanceMeters);
 
-      setStores(parsed);
-      setSelectedStoreId(parsed[0]?.id || null);
+      // Keep the map readable while guaranteeing that requested chains are not
+      // dropped when an area contains more than 80 small shops.
+      const featured = parsed.filter((store) => store.isFeaturedMarket);
+      const visibleStores = Array.from(
+        new Map([...featured, ...parsed].map((store) => [store.id, store])).values()
+      )
+        .slice(0, 80)
+        .sort((a, b) => a.distanceMeters - b.distanceMeters);
+
+      setStores(visibleStores);
+      setSelectedStoreId(visibleStores[0]?.id || null);
       setStatus('ready');
     } catch (error) {
       if (controller.signal.aborted) return;
@@ -550,7 +595,8 @@ export const NearbyStoresScreen: React.FC<NearbyStoresScreenProps> = ({
       const popupHtml = `
         <div style="font-family:Inter,system-ui,sans-serif; min-width:180px;">
           <div style="font-size:13px; font-weight:800; color:#0B3D2E; line-height:1.2;">${escapeHtml(store.name)}</div>
-          <div style="font-size:11px; font-weight:600; color:#16a34a; text-transform:uppercase; letter-spacing:0.06em; margin-top:2px;">${escapeHtml(shopLabel(store.shop, store.amenity, lang))} · ${formatDistance(store.distanceMeters)}</div>
+          <div style="font-size:11px; font-weight:600; color:#16a34a; text-transform:uppercase; letter-spacing:0.06em; margin-top:2px;">${escapeHtml(shopLabel(store.shop, store.amenity, lang))} · ${escapeHtml(formatStoreDistance(store.distanceMeters, locationSource, lang))}</div>
+          ${store.isFeaturedMarket ? `<div style="display:inline-block; font-size:9px; font-weight:800; color:#0B3D2E; background:#dcfce7; padding:2px 6px; border-radius:999px; margin-top:5px;">${escapeHtml(t('mapChainMarket', lang))}</div>` : ''}
           ${store.address ? `<div style="font-size:11px; color:#475569; margin-top:4px;">${escapeHtml(store.address)}</div>` : ''}
           <div style="margin-top:6px; display:flex; flex-wrap:wrap; gap:4px;">
             ${store.categoriesCovered.slice(0,3).map(c => `<span style="font-size:10px; font-weight:800; background:#e8f7ef; color:#0B3D2E; border:1px solid #bbf7d0; padding:2px 6px; border-radius:999px;">${getLocalizedCategory(c, lang)}</span>`).join('')}
@@ -664,6 +710,7 @@ export const NearbyStoresScreen: React.FC<NearbyStoresScreenProps> = ({
               { v: 1000, l: '1 km' },
               { v: 2500, l: '2.5 km' },
               { v: 5000, l: '5 km' },
+              { v: 10000, l: '10 km' },
             ].map((r) => (
               <button
                 key={r.v}
@@ -768,6 +815,9 @@ export const NearbyStoresScreen: React.FC<NearbyStoresScreenProps> = ({
             <button onClick={() => openInOSM(userPos.lat, userPos.lon)} className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-bold text-cold-dark hover:bg-mint">
               OSM <ExternalLink className="w-3 h-3" />
             </button>
+            <p className="basis-full text-[11px] font-medium leading-relaxed text-slate-500">
+              {t('mapDistanceNote', lang)}
+            </p>
           </div>
         )}
       </div>
@@ -852,9 +902,11 @@ export const NearbyStoresScreen: React.FC<NearbyStoresScreenProps> = ({
                     : 'Try a larger radius or search another area.'}
                 </p>
                 <div className="mt-4 flex flex-wrap justify-center gap-2">
-                  {radius < 5000 && (
-                    <button onClick={() => setRadius(5000)} className="px-4 py-2 rounded-full bg-pine text-cold font-bold text-xs">
-                      {lang === 'fr' ? 'Élargir à 5 km' : 'Expand to 5 km'}
+                  {radius < 10000 && (
+                    <button onClick={() => setRadius(radius < 5000 ? 5000 : 10000)} className="px-4 py-2 rounded-full bg-pine text-cold font-bold text-xs">
+                      {lang === 'fr'
+                        ? `Élargir à ${radius < 5000 ? 5 : 10} km`
+                        : `Expand to ${radius < 5000 ? 5 : 10} km`}
                     </button>
                   )}
                   <button onClick={() => openNearbySearch(userPos)} className="px-4 py-2 rounded-full bg-white text-pine font-bold text-xs ring-1 ring-slate-200">
@@ -939,15 +991,22 @@ export const NearbyStoresScreen: React.FC<NearbyStoresScreenProps> = ({
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
-                        <div className={`text-sm font-black leading-tight truncate ${isSelected ? 'text-white' : 'text-slate-900'}`}>
-                          {store.name}
+                        <div className="flex min-w-0 items-center gap-1.5">
+                          <div className={`min-w-0 truncate text-sm font-black leading-tight ${isSelected ? 'text-white' : 'text-slate-900'}`}>
+                            {store.name}
+                          </div>
+                          {store.isFeaturedMarket && (
+                            <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide ${isSelected ? 'bg-cold text-pine-deep' : 'bg-emerald-100 text-emerald-800'}`}>
+                              {t('mapChainMarket', lang)}
+                            </span>
+                          )}
                         </div>
-                        <div className={`text-[11px] font-bold uppercase tracking-widest flex items-center gap-1.5 mt-0.5 ${isSelected ? 'text-cold-soft' : 'text-cold-dark'}`}>
+                        <div className={`text-[11px] font-bold uppercase tracking-widest flex flex-wrap items-center gap-1.5 mt-0.5 ${isSelected ? 'text-cold-soft' : 'text-cold-dark'}`}>
                           <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-black ${isSelected ? 'bg-white/15 text-white' : 'bg-mint text-pine border border-cold/20'}`}>
                             {shopLabel(store.shop, store.amenity, lang)}
                           </span>
-                          <span className="flex items-center gap-1">
-                            <Clock3 className="w-3 h-3" /> {formatDistance(store.distanceMeters)}
+                          <span className="flex items-center gap-1 normal-case tracking-normal">
+                            <NavigationIcon className="w-3 h-3" /> {formatStoreDistance(store.distanceMeters, locationSource, lang)}
                           </span>
                         </div>
                         {store.address && (
@@ -1053,7 +1112,7 @@ export const NearbyStoresScreen: React.FC<NearbyStoresScreenProps> = ({
             </div>
             <div className="min-w-0 flex-1">
               <div className="text-sm font-black text-slate-900 truncate">{selectedStore.name}</div>
-              <div className="text-xs font-bold text-cold-dark uppercase tracking-widest">{shopLabel(selectedStore.shop, selectedStore.amenity, lang)} · {formatDistance(selectedStore.distanceMeters)}</div>
+              <div className="text-xs font-bold text-cold-dark">{shopLabel(selectedStore.shop, selectedStore.amenity, lang)} · {formatStoreDistance(selectedStore.distanceMeters, locationSource, lang)}</div>
             </div>
             <button onClick={() => openDirections(selectedStore.lat, selectedStore.lon, selectedStore.name)} className="shrink-0 w-10 h-10 rounded-xl bg-cold text-pine-deep flex items-center justify-center">
               <NavigationIcon className="w-5 h-5" />
