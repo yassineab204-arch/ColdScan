@@ -20,10 +20,11 @@ export const ComingSoonSection: React.FC<ComingSoonSectionProps> = ({ onNavigate
               <MapPin className="absolute right-[30%] bottom-[14%] h-7 w-7 text-cold/30" strokeWidth={1.6} />
             </div>
             <div className="relative px-6 py-14 sm:px-14 sm:py-16 text-center">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-pine px-4 py-1.5 text-[11px] font-extrabold uppercase tracking-[0.18em] text-cold shadow-lg shadow-pine/30"><MapPin className="h-3.5 w-3.5" />{t('comingBadge', lang)}</span>
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-pine px-4 py-1.5 text-[11px] font-extrabold uppercase tracking-[0.18em] text-cold shadow-lg shadow-pine/30"><MapPin className="h-3.5 w-3.5" />{t('storesBadgeLive', lang)}</span>
               <h2 className="mt-6 text-3xl sm:text-4xl font-extrabold tracking-[-0.03em] text-pine text-balance">{t('comingTitle', lang)}</h2>
-              <p className="mx-auto mt-4 max-w-md text-base sm:text-lg text-ink/65 font-medium leading-relaxed">{t('comingDesc', lang)}</p>
-              <button onClick={() => onNavigate('shopping')} className="mt-9 inline-flex items-center gap-2 rounded-full bg-ink/[0.05] px-6 py-3.5 text-sm font-bold text-pine ring-1 ring-ink/10 transition-all duration-200 hover:ring-cold/50 hover:-translate-y-0.5">{t('comingKeepReady', lang)}<ArrowRight className="h-4 w-4 text-cold-dark" /></button>
+              <p className="mx-auto mt-4 max-w-md text-base sm:text-lg text-ink/65 font-medium leading-relaxed">{t('comingDescNow', lang)}</p>
+              <button onClick={() => onNavigate('stores')} className="mt-9 inline-flex items-center gap-2 rounded-full bg-pine px-6 py-3.5 text-sm font-bold text-white shadow-[0_10px_24px_-10px_rgba(11,61,46,0.5)] transition-all duration-200 hover:bg-pine-light hover:-translate-y-0.5">{t('comingOpenMap', lang)}<ArrowRight className="h-4 w-4 text-cold" /></button>
+              <p className="mt-3 text-xs font-medium text-ink/45">{t('comingOrKeepList', lang)} · <button onClick={() => onNavigate('shopping')} className="underline decoration-cold/40 underline-offset-4 hover:text-pine">{t('shoppingOpenList', lang)}</button></p>
             </div>
           </div>
         </Reveal>

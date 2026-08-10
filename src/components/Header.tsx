@@ -46,6 +46,7 @@ export const Header: React.FC<HeaderProps> = ({
     { id: 'scan', label: t('scan', lang) },
     { id: 'recipes', label: t('recipes', lang) },
     { id: 'shopping', label: t('shopping', lang) },
+    { id: 'stores', label: t('stores', lang) },
   ];
 
   useEffect(() => {
