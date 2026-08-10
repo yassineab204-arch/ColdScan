@@ -192,6 +192,35 @@ export const Header: React.FC<HeaderProps> = ({
               {t('scanMyFridge', lang)}
             </button>
 
+            {/* Settings — right after Scan Fridge (desktop pill) */}
+            <button
+              onClick={() => go('settings')}
+              aria-label={t('settings', lang)}
+              title={t('settings', lang)}
+              className={`hidden md:inline-flex items-center gap-2 rounded-full px-4 py-2.5 text-sm font-bold transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] ${
+                activeTab === 'settings'
+                  ? 'bg-pine text-white shadow-[0_8px_20px_-8px_rgba(11,61,46,0.45)]'
+                  : 'bg-white text-ink/70 ring-1 ring-ink/10 hover:bg-ink/[0.04] hover:text-pine'
+              }`}
+            >
+              <Settings className="h-4 w-4" />
+              <span className="hidden lg:inline">{t('settings', lang)}</span>
+            </button>
+
+            {/* Settings — mobile icon right after Scan Fridge (before hamburger) */}
+            <button
+              onClick={() => go('settings')}
+              aria-label={t('settings', lang)}
+              title={t('settings', lang)}
+              className={`md:hidden inline-flex h-10 w-10 items-center justify-center rounded-xl ring-1 transition-colors ${
+                activeTab === 'settings'
+                  ? 'bg-pine text-white ring-pine shadow-[0_8px_20px_-8px_rgba(11,61,46,0.45)]'
+                  : 'bg-white/80 text-pine ring-ink/10 hover:bg-mint'
+              }`}
+            >
+              <Settings className="h-5 w-5" />
+            </button>
+
             {/* Mobile hamburger */}
             <button
               onClick={() => setMenuOpen((v) => !v)}
