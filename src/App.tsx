@@ -248,7 +248,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen min-h-[100dvh] w-full overflow-x-hidden bg-slate-100/70 text-slate-900 flex flex-col font-sans antialiased">
+    <div className="min-h-screen min-h-[100dvh] w-full overflow-x-hidden bg-white text-ink flex flex-col font-sans antialiased">
       {/* Header */}
       <Header
         activeTab={activeTab}
@@ -261,11 +261,18 @@ export default function App() {
       />
 
       {/* Main Content Viewport */}
-      <main className="flex-1 w-full max-w-md md:max-w-2xl lg:max-w-4xl mx-auto px-3 sm:px-4 py-4 pb-[calc(6rem+env(safe-area-inset-bottom))] overflow-x-hidden">
+      <main
+        className={`flex-1 w-full mx-auto overflow-x-hidden ${
+          activeTab === 'home'
+            ? ''
+            : 'max-w-6xl px-3 sm:px-4 py-4 pb-[calc(6rem+env(safe-area-inset-bottom))] bg-[#F4F8F5]'
+        }`}
+      >
         {activeTab === 'home' && (
           <HomeScreen
             inventory={inventory}
             recipes={recipes}
+            shoppingList={shoppingList}
             settings={settings}
             onUpdateSettings={(newSettings) => setSettings((prev) => ({ ...prev, ...newSettings }))}
             onNavigate={(tab) => setActiveTab(tab)}
@@ -360,13 +367,14 @@ export default function App() {
         settings={settings}
       />
 
-      {/* Mobile Bottom Navigation */}
+      {/* Mobile Bottom Navigation (app screens only — the landing page uses the navbar + hamburger) */}
       <Navigation
         activeTab={activeTab}
         onNavigate={(tab) => setActiveTab(tab)}
         expiringCount={expiringCount}
         shoppingCount={shoppingCount}
         language={settings.language}
+        visible={activeTab !== 'home'}
       />
     </div>
   );

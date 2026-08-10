@@ -91,8 +91,8 @@ export const ShoppingListScreen: React.FC<ShoppingListScreenProps> = ({
       
       {/* Toast popup */}
       {copiedToast && (
-        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50 bg-slate-900 text-emerald-400 text-xs font-black uppercase tracking-widest px-4 py-2.5 rounded-full shadow-2xl flex items-center gap-2 border border-emerald-500/30 animate-in fade-in slide-in-from-top-4">
-          <Check className="w-4 h-4 text-emerald-400" />
+        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50 bg-pine text-cold text-xs font-black uppercase tracking-widest px-4 py-2.5 rounded-full shadow-2xl flex items-center gap-2 border border-cold/30 animate-in fade-in slide-in-from-top-4">
+          <Check className="w-4 h-4 text-cold" />
           <span>Shopping List Copied to Clipboard!</span>
         </div>
       )}
@@ -110,7 +110,7 @@ export const ShoppingListScreen: React.FC<ShoppingListScreenProps> = ({
           </div>
 
           <div className="text-left sm:text-right">
-            <span className="text-[10px] font-black uppercase tracking-widest text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md">
+            <span className="text-[10px] font-black uppercase tracking-widest text-pine bg-mint px-2 py-0.5 rounded-md ring-1 ring-cold/25">
               {t('totalEst', lang)}
             </span>
             <div className="text-2xl font-black tracking-tighter text-slate-900 mt-0.5">
@@ -124,7 +124,7 @@ export const ShoppingListScreen: React.FC<ShoppingListScreenProps> = ({
           <button
             onClick={onGenerateSmartList}
             disabled={isGeneratingList}
-            className="py-3 px-3 rounded-2xl bg-emerald-600 text-white font-black text-xs uppercase tracking-widest hover:bg-emerald-700 hover:scale-105 active:scale-95 transition-all duration-200 flex items-center justify-center gap-1.5 shadow-xs disabled:opacity-50"
+            className="py-3 px-3 rounded-2xl bg-cold text-pine-deep font-black text-xs uppercase tracking-widest hover:bg-cold-dark hover:text-white hover:scale-105 active:scale-95 transition-all duration-200 flex items-center justify-center gap-1.5 shadow-xs disabled:opacity-50"
           >
             <Sparkles className="w-3.5 h-3.5" />
             <span>{isGeneratingList ? t('thinkingRecipes', lang) : t('generateRecipes', lang)}</span>
@@ -144,9 +144,9 @@ export const ShoppingListScreen: React.FC<ShoppingListScreenProps> = ({
           <div className="flex gap-2 pt-2 border-t border-slate-100">
             <button
               onClick={onMoveBoughtToInventory}
-              className="flex-1 py-2.5 px-3 rounded-xl bg-slate-900 text-emerald-400 font-black text-[11px] uppercase tracking-widest hover:bg-slate-800 transition-colors flex items-center justify-center gap-1.5 shadow-xs"
+              className="flex-1 py-2.5 px-3 rounded-xl bg-pine text-cold font-black text-[11px] uppercase tracking-widest hover:bg-pine-light transition-colors flex items-center justify-center gap-1.5 shadow-xs"
             >
-              <PackageCheck className="w-3.5 h-3.5" />
+              <PackageCheck className="w-3.5 h-3.5 text-cold" />
               <span>Restock Bought ({boughtCount})</span>
             </button>
             <button
@@ -167,7 +167,7 @@ export const ShoppingListScreen: React.FC<ShoppingListScreenProps> = ({
           value={newItemName}
           onChange={(e) => setNewItemName(e.target.value)}
           placeholder="Add item e.g. Olive Oil, Garlic, Oats..."
-          className="min-w-0 flex-1 px-3.5 py-2.5 bg-white border border-slate-200 rounded-2xl text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-xs"
+          className="min-w-0 flex-1 px-3.5 py-2.5 bg-white border border-slate-200 rounded-2xl text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-cold shadow-xs"
         />
         <div className="w-20 sm:w-24 relative flex items-center shrink-0">
           <input
@@ -175,13 +175,13 @@ export const ShoppingListScreen: React.FC<ShoppingListScreenProps> = ({
             step="1"
             value={newItemPrice}
             onChange={(e) => setNewItemPrice(e.target.value)}
-            className="w-full pl-3 pr-7 py-2.5 bg-white border border-slate-200 rounded-2xl text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-xs"
+            className="w-full pl-3 pr-7 py-2.5 bg-white border border-slate-200 rounded-2xl text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-cold shadow-xs"
           />
           <span className="absolute right-2 text-[10px] font-black text-slate-400">{currency}</span>
         </div>
         <button
           type="submit"
-          className="p-2.5 rounded-2xl bg-emerald-600 text-white font-bold text-xs hover:bg-emerald-700 transition-colors shadow-xs shrink-0"
+          className="p-2.5 rounded-2xl bg-cold text-pine-deep font-bold text-xs hover:bg-cold-dark hover:text-white transition-colors shadow-xs shrink-0"
         >
           <Plus className="w-4 h-4" />
         </button>
@@ -190,7 +190,7 @@ export const ShoppingListScreen: React.FC<ShoppingListScreenProps> = ({
       {/* Shopping List Items */}
       {shoppingList.length === 0 ? (
         <div className="bg-white border border-slate-200/80 rounded-2xl p-8 text-center space-y-3">
-          <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto">
+          <div className="w-12 h-12 rounded-full bg-mint text-cold-dark flex items-center justify-center mx-auto ring-1 ring-cold/25">
             <ShoppingBag className="w-6 h-6" />
           </div>
           <div>
@@ -201,7 +201,7 @@ export const ShoppingListScreen: React.FC<ShoppingListScreenProps> = ({
           </div>
           <button
             onClick={onGenerateSmartList}
-            className="px-4 py-2 rounded-xl bg-emerald-600 text-white font-semibold text-xs inline-flex items-center gap-1"
+            className="px-4 py-2 rounded-xl bg-cold text-pine-deep font-semibold text-xs inline-flex items-center gap-1"
           >
             <Sparkles className="w-3.5 h-3.5" />
             Auto-Generate List
@@ -215,18 +215,18 @@ export const ShoppingListScreen: React.FC<ShoppingListScreenProps> = ({
               className={`p-3.5 rounded-2xl border transition-all flex items-start gap-2 text-xs ${
                 item.isBought
                   ? 'bg-slate-50 border-slate-200 opacity-60 line-through'
-                  : 'bg-white border-slate-200/80 hover:border-emerald-300 shadow-xs'
+                  : 'bg-white border-slate-200/80 hover:border-cold shadow-xs'
               }`}
             >
               <div className="flex items-start gap-3 min-w-0 flex-1">
                 <button
                   onClick={() => onToggleBought(item.id)}
-                  className="text-emerald-600 hover:scale-110 transition-transform"
+                  className="text-cold-dark hover:scale-110 transition-transform"
                 >
                   {item.isBought ? (
-                    <CheckSquare className="w-5 h-5 text-emerald-600" />
+                    <CheckSquare className="w-5 h-5 text-cold-dark" />
                   ) : (
-                    <Square className="w-5 h-5 text-slate-300" />
+                    <Square className="w-5 h-5 text-ink/20" />
                   )}
                 </button>
 
@@ -235,14 +235,14 @@ export const ShoppingListScreen: React.FC<ShoppingListScreenProps> = ({
                   <div className="text-[11px] text-slate-500 font-medium">
                     {getLocalizedCategory(item.category, lang)} • {item.quantity} {item.unit}
                     {item.relatedRecipe && (
-                      <span className="text-emerald-700 ml-1">({getLocalizedRecipeName(item.relatedRecipe, lang)})</span>
+                      <span className="text-cold-dark ml-1">({getLocalizedRecipeName(item.relatedRecipe, lang)})</span>
                     )}
                   </div>
                 </div>
               </div>
 
               <div className="shrink-0 flex items-center gap-1.5">
-                <span className="font-black text-emerald-800 bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-100 text-[11px] whitespace-nowrap">
+                <span className="font-black text-pine bg-mint px-2 py-1 rounded-lg border border-cold/25 text-[11px] whitespace-nowrap">
                   {item.estimatedPrice.toFixed(2)} {currency}
                 </span>
                 <button

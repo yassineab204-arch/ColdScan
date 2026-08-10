@@ -77,7 +77,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         {/* Language Selection */}
         <div className="space-y-2 pt-3 border-t border-slate-100">
           <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-1.5">
-            <Globe className="w-4 h-4 text-emerald-600" />
+            <Globe className="w-4 h-4 text-cold-dark" />
             {t('languageLabel', lang)}
           </label>
           <div className="grid grid-cols-3 gap-2">
@@ -98,7 +98,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 onClick={() => onUpdateSettings({ language: lang.id })}
                 className={`py-2 px-2 rounded-2xl border text-[11px] font-black flex items-center justify-center gap-1 transition-all ${
                   (settings.language || 'en') === lang.id
-                    ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                    ? 'bg-cold text-pine-deep border-cold shadow-xs'
                     : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
                 }`}
               >
@@ -113,7 +113,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         <div className="space-y-2 pt-3 border-t border-slate-100">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-1.5">
-              <DollarSign className="w-4 h-4 text-emerald-600 shrink-0" />
+              <DollarSign className="w-4 h-4 text-cold-dark shrink-0" />
               Preferred Currency
             </label>
             <select
@@ -139,7 +139,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           <select
             value={settings.wasteAlertDays}
             onChange={(e) => onUpdateSettings({ wasteAlertDays: Number(e.target.value) })}
-            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-800 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-800 text-xs focus:outline-none focus:ring-2 focus:ring-cold"
           >
             <option value={1}>Warn 1 day before expiry</option>
             <option value={2}>Warn 2 days before expiry</option>
@@ -152,14 +152,14 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         <div className="space-y-3 pt-3 border-t border-slate-100">
           <div className="flex items-start justify-between gap-3">
             <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-start gap-1.5">
-              <Volume2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              <Volume2 className="w-4 h-4 text-cold-dark shrink-0" />
               Enable Voice Responses
             </label>
             <input
               type="checkbox"
               checked={settings.voiceOutputEnabled}
               onChange={(e) => onUpdateSettings({ voiceOutputEnabled: e.target.checked })}
-              className="w-5 h-5 accent-emerald-600 rounded"
+              className="w-5 h-5 accent-cold rounded"
             />
           </div>
 
@@ -169,7 +169,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               <select
                 value={settings.voiceName}
                 onChange={(e) => onUpdateSettings({ voiceName: e.target.value })}
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-800 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-800 text-xs focus:outline-none focus:ring-2 focus:ring-cold"
               >
                 {VOICES.map((v) => (
                   <option key={v.id} value={v.id}>
@@ -184,7 +184,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         {/* Dietary Preferences */}
         <div className="space-y-2 pt-3 border-t border-slate-100">
           <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-1.5">
-            <Utensils className="w-4 h-4 text-emerald-600" />
+            <Utensils className="w-4 h-4 text-cold-dark" />
             Dietary Preferences & Goals
           </label>
           <div className="flex flex-wrap gap-1.5">
@@ -196,7 +196,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   onClick={() => toggleDietary(item)}
                   className={`px-3 py-1.5 rounded-xl text-[10px] font-black tracking-wider uppercase border transition-all ${
                     isSelected
-                      ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                      ? 'bg-cold text-pine-deep border-cold shadow-xs'
                       : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
                   }`}
                 >

@@ -79,7 +79,7 @@ export const InventoryScreen: React.FC<InventoryScreenProps> = ({
 
         <button
           onClick={handleAddNew}
-          className="w-full sm:w-auto justify-center px-4 py-3 rounded-2xl bg-emerald-600 text-white font-black text-xs uppercase tracking-widest flex items-center gap-1.5 hover:bg-emerald-700 hover:scale-105 active:scale-95 transition-all duration-200 shadow-sm hover:shadow-md"
+          className="w-full sm:w-auto justify-center px-4 py-3 rounded-2xl bg-cold text-pine-deep font-black text-xs uppercase tracking-widest flex items-center gap-1.5 hover:bg-cold-dark hover:text-white hover:scale-105 active:scale-95 transition-all duration-200 shadow-sm hover:shadow-md"
         >
           <Plus className="w-4 h-4" />
           {t('addItem', lang)}
@@ -95,7 +95,7 @@ export const InventoryScreen: React.FC<InventoryScreenProps> = ({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder={t('searchPlaceholder', lang)}
-            className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-2xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 placeholder-slate-400 shadow-xs"
+            className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-2xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-cold text-slate-900 placeholder-slate-400 shadow-xs"
           />
           {searchQuery && (
             <button
@@ -120,7 +120,7 @@ export const InventoryScreen: React.FC<InventoryScreenProps> = ({
               onClick={() => setActiveFilter(pill.id as any)}
               className={`px-3 py-1.5 rounded-xl text-[10px] font-black tracking-wider whitespace-nowrap transition-all duration-200 hover:scale-105 active:scale-95 border ${
                 activeFilter === pill.id
-                  ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                  ? 'bg-cold text-pine-deep border-cold shadow-xs'
                   : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
               }`}
             >
@@ -133,7 +133,7 @@ export const InventoryScreen: React.FC<InventoryScreenProps> = ({
       {/* Inventory List */}
       {filteredItems.length === 0 ? (
         <div className="bg-white border border-slate-200 rounded-3xl p-8 text-center space-y-3 shadow-xs">
-          <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto">
+          <div className="w-12 h-12 rounded-full bg-mint text-cold-dark flex items-center justify-center mx-auto ring-1 ring-cold/25">
             <Package className="w-6 h-6" />
           </div>
           <div>
@@ -141,7 +141,7 @@ export const InventoryScreen: React.FC<InventoryScreenProps> = ({
           </div>
           <button
             onClick={handleAddNew}
-            className="px-5 py-2.5 rounded-2xl bg-emerald-600 text-white font-black text-xs uppercase tracking-widest inline-flex items-center gap-1.5 shadow-xs"
+            className="px-5 py-2.5 rounded-2xl bg-cold text-pine-deep font-black text-xs uppercase tracking-widest inline-flex items-center gap-1.5 shadow-xs"
           >
             <Plus className="w-4 h-4" />
             {t('addFirstItem', lang)}
@@ -162,7 +162,7 @@ export const InventoryScreen: React.FC<InventoryScreenProps> = ({
                     ? 'border-amber-200 bg-amber-50/20'
                     : isExpired
                     ? 'border-rose-200 bg-rose-50/20'
-                    : 'border-slate-200 hover:border-emerald-300'
+                    : 'border-slate-200 hover:border-cold'
                 }`}
               >
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -198,8 +198,8 @@ export const InventoryScreen: React.FC<InventoryScreenProps> = ({
                       </span>
                     )}
                     {item.freshness === 'fresh' && (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 font-black text-[10px] uppercase tracking-wider border border-emerald-200">
-                        <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-mint text-pine font-black text-[10px] uppercase tracking-wider border border-cold/25">
+                        <CheckCircle2 className="w-3 h-3 text-cold-dark" />
                         {t('fresh', lang)}
                       </span>
                     )}
@@ -216,9 +216,9 @@ export const InventoryScreen: React.FC<InventoryScreenProps> = ({
                 <div className="mt-3 pt-2.5 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
                   <button
                     onClick={() => onNavigateToRecipes(item.name)}
-                    className="text-xs font-black text-emerald-800 hover:text-emerald-900 uppercase tracking-widest flex items-center gap-1 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-100"
+                    className="text-xs font-black text-pine hover:text-pine-light uppercase tracking-widest flex items-center gap-1 bg-mint px-3 py-1.5 rounded-xl border border-cold/25"
                   >
-                    <Utensils className="w-3.5 h-3.5 text-emerald-600" />
+                    <Utensils className="w-3.5 h-3.5 text-cold-dark" />
                     {t('cookWithThis', lang)}
                   </button>
 
