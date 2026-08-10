@@ -38,7 +38,7 @@ interface ChatMessage {
   isLiveStreaming?: boolean;
 }
 
-// Natural Multilingual Prompt Starters (Darija, French, English)
+// Natural Multilingual Prompt Starters — covers all 9 app languages
 const NATURAL_MULTILINGUAL_PROMPTS = [
   { label: '🇲🇦 شنو نطيب بهادشي فالتلاجة؟', icon: Utensils, query: 'شنو نقدر نطيب دابا بالخضرة والمأكولات اللي كاينين عندي فالتلاجة؟' },
   { label: '🇲🇦 شنو خاصني ناكل هو اللول؟', icon: AlertTriangle, query: 'شنو هما الحوايج فالتلاجة اللي قريب يسالي الصلاحية ديالهم وخاصني نستعملهم هما اللولين؟' },
@@ -47,10 +47,43 @@ const NATURAL_MULTILINGUAL_PROMPTS = [
   { label: '🇫🇷 Qu\'est-ce qui expire bientôt ?', icon: AlertTriangle, query: 'Quels aliments dans mon frigo arrivent bientôt à expiration et doivent être consommés rapidement ?' },
   { label: '🇬🇧 What can I cook right now?', icon: Utensils, query: 'What can I cook with what I currently have in my fridge?' },
   { label: '🇬🇧 What groceries am I missing?', icon: ShoppingBag, query: 'Based on my fridge inventory, what essential groceries am I missing?' },
+  { label: '🇪🇸 ¿Qué puedo cocinar ahora?', icon: Utensils, query: '¿Qué puedo cocinar con lo que tengo en mi nevera?' },
+  { label: '🇩🇪 Was kann ich jetzt kochen?', icon: Utensils, query: 'Was kann ich mit meinen Kühlschrank-Zutaten kochen?' },
+  { label: '🇯🇵 今何が作れる？', icon: Utensils, query: '冷蔵庫にある食材で何が作れますか？' },
 ];
 
-const INITIAL_TRILINGUAL_GREETING = 
-  'أهلاً بك الشاف ! أنا المساعد الصوتي ديالك كولد سكان. تكلم معايا بحرية بالدارجة المغربية، بالفرنسية، ولا بالإنجليزية — أنا كنسمع ليك مباشرة ونجاوبك بنفس اللغة ! 🎙️✨';
+function getInitialGreeting(activeRecipe: any, lang: string): string {
+  const greetings: Record<string, string> = {
+    en: activeRecipe
+      ? `Welcome Chef! I'm here to help you cook "${activeRecipe.name}". Talk to me in any language — I listen and answer in the same language! 🍲✨`
+      : `Welcome Chef! I'm your ColdScan voice assistant. Speak freely in any language — I listen and answer in the same language! 🎙️✨`,
+    fr: activeRecipe
+      ? `Bienvenue Chef ! Je suis là pour vous aider à cuisiner « ${activeRecipe.name} ». Parlez-moi en français, darija ou anglais — je réponds dans la même langue ! 🍲✨`
+      : `Bienvenue Chef ! Je suis votre assistant vocal ColdScan. Parlez en français, darija ou anglais — je vous réponds dans la même langue ! 🎙️✨`,
+    'ar-MA': activeRecipe
+      ? `أهلاً بك الشاف ! أنا معاك دابا باش نعاونك فوصفة "${activeRecipe.name}". تكلم معايا بالدارجة ولا بالفرنسية ولا بالإنجليزي، أنا كنسمع ليك مباشرة ! 🍲✨`
+      : `أهلاً بك الشاف ! أنا المساعد الصوتي ديالك كولد سكان. تكلم معايا بحرية بالدارجة المغربية، بالفرنسية، ولا بالإنجليزية — أنا كنسمع ليك مباشرة ونجاوبك بنفس اللغة ! 🎙️✨`,
+    ar: activeRecipe
+      ? `أهلاً بك أيها الشيف! أنا هنا لمساعدتك في وصفة "${activeRecipe.name}". تحدث معي بأي لغة وسأجيب بنفس اللغة! 🍲✨`
+      : `أهلاً بك! أنا المساعد الصوتي لكولد سكان. تحدث بأي لغة وسأجيبك بنفس اللغة! 🎙️✨`,
+    es: activeRecipe
+      ? `¡Bienvenido Chef! Te ayudo a cocinar "${activeRecipe.name}". ¡Háblame en cualquier idioma y te respondo en el mismo! 🍲✨`
+      : `¡Hola Chef! Soy tu asistente de voz ColdScan. ¡Háblame en cualquier idioma y te respondo en el mismo! 🎙️✨`,
+    de: activeRecipe
+      ? `Willkommen Chef! Ich helfe dir beim Kochen von „${activeRecipe.name}“. Sprich in jeder Sprache — ich antworte in derselben! 🍲✨`
+      : `Hallo Chef! Ich bin dein ColdScan Sprachassistent. Sprich in jeder Sprache — ich antworte in derselben! 🎙️✨`,
+    it: activeRecipe
+      ? `Benvenuto Chef! Ti aiuto a cucinare "${activeRecipe.name}". Parlami in qualsiasi lingua e ti rispondo nella stessa! 🍲✨`
+      : `Ciao Chef! Sono il tuo assistente vocale ColdScan. Parlami in qualsiasi lingua e ti rispondo nella stessa! 🎙️✨`,
+    pt: activeRecipe
+      ? `Bem-vindo Chef! Vou ajudar com "${activeRecipe.name}". Fala comigo em qualquer idioma e respondo no mesmo! 🍲✨`
+      : `Olá Chef! Sou teu assistente de voz ColdScan. Fala em qualquer idioma e respondo no mesmo! 🎙️✨`,
+    ja: activeRecipe
+      ? `ようこそシェフ！「${activeRecipe.name}」を一緒に作りましょう。どんな言語でもどうぞ — 同じ言語でお答えします！🍲✨`
+      : `こんにちはシェフ！私はColdScan音声アシスタントです。どんな言語でも話しかけてください — 同じ言語でお答えします！🎙️✨`,
+  };
+  return greetings[lang] || greetings.en;
+}
 
 export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
   isOpen,
@@ -85,7 +118,7 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isModelSpeaking]);
 
-  // Connect to the voice session when modal opens
+  // Connect to the voice session when modal opens or when language/recipe changes
   useEffect(() => {
     if (!isOpen) {
       disconnectLiveSession();
@@ -99,7 +132,7 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
       disconnectLiveSession();
       stopCamera();
     };
-  }, [isOpen, activeRecipe]);
+  }, [isOpen, activeRecipe, settings?.language]);
 
   const startLiveSession = async () => {
     disconnectLiveSession();
@@ -107,10 +140,9 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
     setErrorMessage(null);
     setIsInterrupted(false);
 
-    // Initial greeting message
-    const initialGreeting = activeRecipe
-      ? `أهلاً بك الشاف ! أنا معاك دابا باش نعاونك فوصفة "${activeRecipe.name}". تكلم معايا بالدارجة ولا بالفرنسية ولا بالإنجليزي، أنا كنسمع ليك مباشرة ! 🍲✨`
-      : INITIAL_TRILINGUAL_GREETING;
+    // Initial greeting message localized to the user's selected language
+    const currentLang = (settings?.language || 'en') as string;
+    const initialGreeting = getInitialGreeting(activeRecipe, currentLang);
 
     const greetingMsgId = `assistant-init-${Date.now()}`;
     setMessages([
@@ -123,6 +155,7 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
     ]);
 
     const client = new GeminiLiveClient({
+      language: (settings?.language || 'en') as string,
       voiceName: settings?.voiceName || 'Zephyr',
       inventory: inventory || [],
       recipe: activeRecipe || null,
@@ -341,7 +374,7 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
                 </span>
               </div>
               <p className="text-[11px] text-slate-400 font-medium">
-                Moroccan Darija • Français • English (Auto-Detect)
+                9 languages • Auto-detects your spoken language
               </p>
             </div>
           </div>
@@ -426,7 +459,7 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
             ) : (
               <div className="flex items-center gap-2 text-xs font-bold text-emerald-300">
                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                <span>Speak naturally in Darija, French, or English</span>
+                <span>Speak naturally in your language</span>
               </div>
             )}
           </div>
@@ -545,7 +578,7 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-                placeholder="تكلم بالصوت ولا كتب بالدارجة، français ou english..."
+                placeholder="Speak or type in any language — Darija, français, English, Español..."
                 className="w-full pl-4 pr-10 py-3 text-xs font-semibold bg-slate-900 border border-slate-800 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white placeholder-slate-500 transition-all"
               />
               <button
@@ -560,7 +593,7 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
 
           <div className="flex items-center justify-between text-[10px] text-slate-500 font-semibold px-1">
             <span>✨ Live Voice • 16kHz in / 24kHz out</span>
-            <span className="text-emerald-400 font-bold">Auto-detects Darija, French & English</span>
+            <span className="text-emerald-400 font-bold">Auto-detects 9 languages</span>
           </div>
         </div>
 

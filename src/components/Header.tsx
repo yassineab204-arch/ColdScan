@@ -290,7 +290,7 @@ export const Header: React.FC<HeaderProps> = ({
                 className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-ink/[0.04] px-4 py-3 text-sm font-semibold text-ink/70"
               >
                 <Settings className="h-4 w-4" />
-                Settings
+                {t('settings', lang)}
               </button>
               <button
                 onClick={() => go('scan')}

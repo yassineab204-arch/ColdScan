@@ -141,10 +141,10 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             onChange={(e) => onUpdateSettings({ wasteAlertDays: Number(e.target.value) })}
             className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-800 text-xs focus:outline-none focus:ring-2 focus:ring-cold"
           >
-            <option value={1}>Warn 1 day before expiry</option>
-            <option value={2}>Warn 2 days before expiry</option>
-            <option value={3}>Warn 3 days before expiry (Default)</option>
-            <option value={5}>Warn 5 days before expiry</option>
+            <option value={1}>{t('warn1Day', lang)}</option>
+            <option value={2}>{t('warn2Days', lang)}</option>
+            <option value={3}>{t('warn3Days', lang)}</option>
+            <option value={5}>{t('warn5Days', lang)}</option>
           </select>
         </div>
 
