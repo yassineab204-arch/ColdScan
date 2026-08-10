@@ -29,7 +29,16 @@ export default function App() {
   // Persistent State
   const [inventory, setInventory] = useState<FoodItem[]>(() => {
     const saved = localStorage.getItem('coldscan_inventory');
-    return saved ? JSON.parse(saved) : INITIAL_INVENTORY;
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length === 0) return INITIAL_INVENTORY;
+        return parsed;
+      } catch {
+        return INITIAL_INVENTORY;
+      }
+    }
+    return INITIAL_INVENTORY;
   });
 
   const [recipes, setRecipes] = useState<Recipe[]>(() => {
