@@ -42,7 +42,12 @@ export const Navigation: React.FC<NavigationProps> = ({
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-ink/[0.07] px-1 sm:px-3 pt-1.5 pb-[calc(0.375rem+env(safe-area-inset-bottom))] shadow-[0_-12px_40px_-20px_rgba(11,61,46,0.25)]">
-      <div className="w-full max-w-[520px] mx-auto flex items-center justify-between gap-0 sm:gap-1 sm:justify-around overflow-x-auto scrollbar-none">
+      {/* overflow-x-clip (not -auto): "auto" would coerce overflow-y to auto as
+          well and slice the crown off the raised scan button (-top-3.5 vs the
+          bar's pt-1.5). clip keeps any horizontal spill contained while letting
+          the FAB stick out above the bar. flex-1/min-w-0 items never actually
+          overflow horizontally, so no scroll behavior is lost. */}
+      <div className="w-full max-w-[520px] mx-auto flex items-center justify-between gap-0 sm:gap-1 sm:justify-around overflow-x-clip">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
