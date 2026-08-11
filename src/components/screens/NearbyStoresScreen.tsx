@@ -853,9 +853,11 @@ export const NearbyStoresScreen: React.FC<NearbyStoresScreenProps> = ({
             </div>
           </div>
 
-          {/* Map container - always mounted but hidden when viewMode list on mobile? keep mounted for leaflet */}
-          <div className={`${viewMode === 'list' ? 'hidden lg:block' : 'block'} relative`}>
-            <div ref={mapRef} className="w-full h-[300px] sm:h-[400px] lg:h-[520px] bg-[#e8f0e8]" />
+          {/* Map container. `isolate` + `overflow-hidden` keep Leaflet's own
+              z-indexes (400-1000) inside this box so tiles, markers and popups
+              can never paint over the fixed bottom navigation. */}
+          <div className={`${viewMode === 'list' ? 'hidden lg:block' : 'block'} relative isolate overflow-hidden`}>
+            <div ref={mapRef} className="w-full h-[260px] sm:h-[360px] lg:h-[520px] bg-[#e8f0e8]" />
 
             {/* Overlay loading */}
             {isLoading && (

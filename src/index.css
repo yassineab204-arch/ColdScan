@@ -191,6 +191,24 @@ button {
   animation: cs-glow 4.5s ease-in-out infinite;
 }
 
+/* ============================================================
+   Leaflet map containment
+   ------------------------------------------------------------
+   Leaflet gives its own panes and controls z-index values from 400 up to
+   1000. Without a stacking context of its own, those numbers compete with
+   the rest of the app at the root level, so tiles, markers, popups and the
+   zoom buttons paint straight over the fixed bottom navigation.
+   `isolation: isolate` scopes every one of those values inside the map, so
+   the map as a whole sits below the nav and header where it belongs.
+   ============================================================ */
+.leaflet-container {
+  position: relative;
+  z-index: 0;
+  isolation: isolate;
+  /* The map is a drag surface; never let it hijack the page scroll chain. */
+  overscroll-behavior: contain;
+}
+
 /* Marquee-free, static hero helpers */
 .cs-hero-grid {
   background-image:
