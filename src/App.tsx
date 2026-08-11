@@ -25,23 +25,18 @@ import { SettingsScreen } from './components/screens/SettingsScreen';
 
 import { convertCurrency } from './utils/currency';
 import { t } from './utils/i18n';
-import {
-  loadTrialState,
-  saveTrialState,
-  isAccessLocked,
-  trialDaysLeft,
-  redeemAccessCode,
-  TrialState,
-} from './utils/trial';
+import { apiFetch, onTrialExpired } from './utils/api';
+import { useTrial } from './hooks/useTrial';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabType>('home');
   const [isLiveVoiceOpen, setIsLiveVoiceOpen] = useState(false);
   const [isAssistantOpen, setIsAssistantOpen] = useState(false);
 
-  // Free-trial / access state (starts the clock on the very first open)
-  const [trial, setTrial] = useState<TrialState>(() => loadTrialState());
-  const [showTutorial, setShowTutorial] = useState(() => !trial.tutorialSeen);
+  // Free-trial / access state. The server owns the clock: this hook only
+  // mirrors what /api/trial reports and re-checks on focus and on 402s.
+  const trial = useTrial();
+  const [showTutorial, setShowTutorial] = useState(false);
   const [accessNotice, setAccessNotice] = useState<string | null>(null);
 
   // Persistent State
@@ -102,9 +97,21 @@ export default function App() {
     localStorage.setItem('coldscan_settings', JSON.stringify(settings));
   }, [settings]);
 
+  // The tutorial flag lives with the server-side account, so replaying it or
+  // clearing storage cannot be used to poke at the trial.
   useEffect(() => {
-    saveTrialState(trial);
-  }, [trial]);
+    if (trial.loaded && !trial.status.tutorialSeen && !trial.locked) setShowTutorial(true);
+  }, [trial.loaded, trial.status.tutorialSeen, trial.locked]);
+
+  // Any premium API call that comes back 402 locks the UI immediately.
+  useEffect(
+    () =>
+      onTrialExpired(({ trial: serverStatus }) => {
+        if (serverStatus) trial.applyStatus(serverStatus);
+        else void trial.refresh();
+      }),
+    [trial.applyStatus, trial.refresh]
+  );
 
   // Derived counts
   const expiringCount = inventory.filter((i) => i.freshness === 'soon_to_expire').length;
@@ -112,28 +119,33 @@ export default function App() {
 
   // Trial / access gate. The landing page ('home') always stays open so people
   // can still read about ColdScan and reach the contact links; the product tabs
-  // are what lock.
-  const daysLeft = trialDaysLeft(trial);
-  const accessLocked = isAccessLocked(trial);
+  // are what lock. This is presentation only — the server independently refuses
+  // every premium request once the 48 hours are up.
+  const accessLocked = trial.locked;
   const showLockScreen = accessLocked && activeTab !== 'home';
   const lang = settings.language || 'en';
 
   const handleFinishTutorial = () => {
     setShowTutorial(false);
-    setTrial((prev) => ({ ...prev, tutorialSeen: true }));
+    trial.completeTutorial();
   };
 
-  const handleRedeemCode = (code: string): boolean => {
-    const result = redeemAccessCode(code, trial);
+  const handleRedeemCode = async (code: string): Promise<boolean> => {
+    const result = await trial.redeemCode(code);
     if (!result.ok) return false;
 
-    setTrial(result.state);
     setAccessNotice(
       result.granted === 'unlock'
         ? t('trialCodeUnlocked', lang)
-        : t('trialCodeExtended', lang).replace('__count__', String(result.days ?? 0))
+        : t('trialCodeExtended', lang).replace('__count__', String(result.hours ?? 0))
     );
     return true;
+  };
+
+  const handleLinkEmail = async (email: string): Promise<boolean> => {
+    const result = await trial.linkEmail(email);
+    if (result.ok) setAccessNotice(t('trialEmailLinked', lang));
+    return result.ok;
   };
 
   // Auto-dismiss the unlock confirmation
@@ -168,7 +180,7 @@ export default function App() {
   const handleRefreshRecipes = async () => {
     setIsGeneratingRecipes(true);
     try {
-      const res = await fetch('/api/generate-recipes', {
+      const res = await apiFetch('/api/generate-recipes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -246,7 +258,7 @@ export default function App() {
   const handleGenerateSmartList = async () => {
     setIsGeneratingList(true);
     try {
-      const res = await fetch('/api/generate-shopping-list', {
+      const res = await apiFetch('/api/generate-shopping-list', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -315,10 +327,9 @@ export default function App() {
       setRecipes(DEFAULT_RECIPES);
       setShoppingList(DEFAULT_SHOPPING_LIST);
       setSettings(DEFAULT_SETTINGS);
-      // Clear demo data but keep the trial/access state — resetting the demo
-      // must not silently hand out a brand new free trial.
+      // Clearing local demo data is safe: the trial lives on the server, keyed
+      // to the account in an HttpOnly cookie, so this cannot hand out a new one.
       localStorage.clear();
-      saveTrialState(trial);
     }
   };
 
@@ -353,10 +364,12 @@ export default function App() {
         }`}
       >
         {/* Trial status strip (app screens only — the landing page has its own CTAs) */}
-        {activeTab !== 'home' && !showLockScreen && (
+        {activeTab !== 'home' && !showLockScreen && trial.loaded && (
           <TrialBanner
-            daysLeft={daysLeft}
-            unlocked={trial.unlocked}
+            timeLeftLabel={trial.timeLeftLabel}
+            msLeft={trial.msLeft}
+            unlocked={trial.status.unlocked}
+            emailLinked={trial.status.emailLinked}
             lang={lang}
             onContact={() => setActiveTab('settings')}
           />
@@ -366,7 +379,9 @@ export default function App() {
         {showLockScreen && (
           <TrialExpiredScreen
             lang={lang}
+            emailLinked={trial.status.emailLinked}
             onRedeemCode={handleRedeemCode}
+            onLinkEmail={handleLinkEmail}
             onBackHome={() => setActiveTab('home')}
           />
         )}
@@ -453,8 +468,12 @@ export default function App() {
             settings={settings}
             onUpdateSettings={handleUpdateSettings}
             onResetData={handleResetData}
-            trialDaysLeft={daysLeft}
-            trialUnlocked={trial.unlocked}
+            trialTimeLeftLabel={trial.timeLeftLabel}
+            trialMsLeft={trial.msLeft}
+            trialUnlocked={trial.status.unlocked}
+            trialExpiresAt={trial.status.expiresAt}
+            trialEmailLinked={trial.status.emailLinked}
+            onLinkEmail={handleLinkEmail}
             onReplayTutorial={() => setShowTutorial(true)}
           />
         )}

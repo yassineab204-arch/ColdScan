@@ -3,7 +3,7 @@ import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { Camera, ChefHat, PiggyBank, Sparkles, ArrowRight, ArrowLeft, X, Check } from 'lucide-react';
 import { LanguageType } from '../types';
 import { t } from '../utils/i18n';
-import { TRIAL_DAYS } from '../utils/trial';
+import { TRIAL_HOURS } from '../utils/trial';
 
 interface WelcomeTutorialProps {
   isOpen: boolean;
@@ -23,7 +23,7 @@ const STEPS = [
 
 /**
  * Short first-open walkthrough: 4 cards covering Scan → Cook → Save, ending on
- * the 7-day free trial. Shown once (persisted via the trial state) and
+ * the 48-hour free trial. Shown once (persisted via the trial state) and
  * replayable from Settings.
  */
 export const WelcomeTutorial: React.FC<WelcomeTutorialProps> = ({ isOpen, lang, onFinish }) => {
@@ -119,7 +119,7 @@ export const WelcomeTutorial: React.FC<WelcomeTutorialProps> = ({ isOpen, lang, 
               {isLast && (
                 <span className="mt-5 inline-flex items-center gap-2 rounded-full bg-cold/15 px-4 py-2 text-sm font-extrabold text-pine">
                   <Check className="h-4 w-4" strokeWidth={3} />
-                  {t('trialDaysFree', lang).replace('__count__', String(TRIAL_DAYS))}
+                  {t('trialDaysFree', lang).replace('__count__', String(TRIAL_HOURS))}
                 </span>
               )}
             </motion.div>

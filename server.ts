@@ -21,6 +21,7 @@ import liveToken from './api/live-token.js';
 import nearbyStores from './api/nearby-stores.js';
 import recipeVoiceBot from './api/recipe-voice-bot.js';
 import scanFridge from './api/scan-fridge.js';
+import trial from './api/trial.js';
 import tts from './api/tts.js';
 import type { ApiHandler } from './api/_lib/http.js';
 
@@ -42,6 +43,7 @@ const routes: Record<string, ApiHandler> = {
   '/api/ai-chat': aiChat,
   '/api/recipe-voice-bot': recipeVoiceBot,
   '/api/tts': tts,
+  '/api/trial': trial,
 };
 
 // Express req/res structurally satisfy the ApiRequest/ApiResponse contract that
@@ -67,6 +69,9 @@ async function start() {
     console.log(`ColdScan dev server running on http://localhost:${PORT}`);
     if (!process.env.GEMINI_API_KEY) {
       console.warn('WARNING: GEMINI_API_KEY is not set. Create a .env file with your key.');
+    }
+    if (!process.env.TRIAL_SECRET) {
+      console.warn('WARNING: TRIAL_SECRET is not set. Trial sessions will reset on restart.');
     }
   });
 }

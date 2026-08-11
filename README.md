@@ -8,16 +8,33 @@ trilingual (Darija / French / English) voice sous-chef powered by Gemini Live.
 
 1. Import the repo in Vercel. The settings in `vercel.json` are picked up
    automatically (Vite build → `dist/`, everything in `api/` → serverless functions).
-2. Add **one** environment variable in **Settings → Environment Variables**, for all
+2. Add the environment variables in **Settings → Environment Variables**, for all
    environments:
 
-   | Name             | Value                |
-   | ---------------- | -------------------- |
-   | `GEMINI_API_KEY` | your Gemini API key   |
+   | Name                      | Required | Value                                                |
+   | ------------------------- | -------- | ---------------------------------------------------- |
+   | `GEMINI_API_KEY`          | yes      | your Gemini API key                                   |
+   | `TRIAL_SECRET`            | yes      | 32+ random chars — signs trial sessions               |
+   | `UPSTASH_REDIS_REST_URL`  | yes      | Upstash Redis REST URL (stores the trial clock)       |
+   | `UPSTASH_REDIS_REST_TOKEN`| yes      | Upstash Redis REST token                              |
+   | `TRIAL_ACCESS_CODES`      | no       | codes you hand out, e.g. `AB12-CD34:unlock`           |
 
-3. Deploy. Redeploy after adding the key if the first build ran without it.
+   Vercel's own KV integration sets `KV_REST_API_URL` / `KV_REST_API_TOKEN`
+   instead — either pair works. Generate the secret with:
 
-Check `https://<your-app>.vercel.app/api/health` — `geminiKeyConfigured` should be `true`.
+   ```bash
+   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+   ```
+
+   See [`.env.example`](.env.example) for what each one does.
+
+3. Deploy. Redeploy after adding the keys if the first build ran without them.
+
+Check `https://<your-app>.vercel.app/api/health` — `geminiKeyConfigured`,
+`trial.secretConfigured` and `trial.storeConfigured` should all be `true`.
+**If `trial.storeConfigured` is `false` the trial cannot be enforced**: each
+serverless instance keeps its own in-memory copy, so the clock effectively
+restarts at random.
 
 ## Local development
 
@@ -51,6 +68,62 @@ model, voice, persona and transcription settings are locked into the token via
 To change the assistant's persona, model, or voice, edit
 [`api/_lib/livePersona.ts`](api/_lib/livePersona.ts) — it is the single source of truth.
 
+
+## The 2-day free trial
+
+Every new user gets **48 hours** of full access. The trial is enforced entirely
+on the server — the browser is never trusted with the clock.
+
+```
+browser → GET /api/trial
+        ← { startedAt, expiresAt, active, … }   ← computed from the stored
+                                                   start time + server clock
+
+browser → POST /api/scan-fridge (or any premium route)
+        ← 402 { trialExpired: true }            once the 48 hours are up
+```
+
+**Where the state lives**
+
+| What                | Where                                                        |
+| ------------------- | ------------------------------------------------------------ |
+| Account identity    | signed **HttpOnly** cookie `coldscan_sid` (JS cannot read it) |
+| Trial start time    | Redis, keyed to the account, written once with `SET NX`       |
+| Expiry              | computed on the server as `startedAt + 48h`                   |
+| Email link          | stored as an HMAC — the raw address is never persisted        |
+| Device link         | salted hash of IP + User-Agent — never stored in the clear    |
+
+**Why clearing browser storage doesn't restart it**
+
+1. Nothing about the trial is kept in `localStorage`, so there is nothing to clear.
+2. The account id lives in an `HttpOnly` cookie that page scripts cannot read or delete.
+3. The start time is written with `SET NX`, so an account can never get a second one.
+4. If the cookie *is* cleared, a hashed device fingerprint re-links the browser to the same account.
+5. Once the user adds their email, the trial follows the person across browsers and devices.
+6. Editing the front-end changes nothing: every premium route re-checks the trial and returns `402`.
+
+Honest limitation: a determined user on a *different* device with a *different*
+IP, who never linked an email, can start a new trial. Closing that fully requires
+real authenticated accounts. Everything short of that — devtools, incognito,
+clearing storage, editing the bundle, forging the cookie — is covered.
+
+**Handing out access after the trial**
+
+The contact screen accepts an access code. Codes are configured through
+`TRIAL_ACCESS_CODES` (never hardcoded), compared as HMACs keyed with
+`TRIAL_SECRET`, and rate limited to 10 attempts per account per 15 minutes:
+
+```
+TRIAL_ACCESS_CODES="8FJ2-QW71:unlock,K93M-2RTX:extend:48"
+                     └ permanent access   └ 48 extra hours
+```
+
+Run the gate's self-test with:
+
+```bash
+npx tsx scripts/trial-selftest.ts
+```
+
 ## API routes
 
 | Route                        | Purpose                                   |
@@ -65,6 +138,7 @@ To change the assistant's persona, model, or voice, edit
 | `/api/ai-chat`               | Text assistant                            |
 | `/api/recipe-voice-bot`      | Cooking sous-chef turns + step/timer actions |
 | `/api/tts`                   | Speech synthesis (WAV)                    |
+| `/api/trial`                 | Trial status, email binding, access codes |
 
 Uploaded photos are downscaled in the browser to 1280px/JPEG before upload
 (see `src/utils/image.ts`) to stay under Vercel's 4.5 MB request body limit.

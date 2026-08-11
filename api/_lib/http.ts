@@ -8,12 +8,18 @@ export interface ApiRequest {
   method?: string;
   body?: any;
   query?: Record<string, any>;
+  /** Lower-cased request headers. Vercel and Express both provide this. */
+  headers?: Record<string, string | string[] | undefined>;
+  /** Vercel parses cookies for us; Express does not (we parse the header instead). */
+  cookies?: Record<string, string>;
+  /** Express-only. Vercel exposes the client IP through `x-forwarded-for`. */
+  socket?: { remoteAddress?: string };
 }
 
 export interface ApiResponse {
   status(code: number): ApiResponse;
   json(body: any): any;
-  setHeader(name: string, value: string): any;
+  setHeader(name: string, value: string | string[]): any;
 }
 
 export type ApiHandler = (req: ApiRequest, res: ApiResponse) => Promise<any> | any;

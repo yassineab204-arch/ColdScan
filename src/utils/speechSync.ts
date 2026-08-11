@@ -1,4 +1,5 @@
 import { LanguageType } from '../types';
+import { apiFetch } from './api';
 
 export interface SpeechProgress {
   fraction: number; // 0 to 1
@@ -225,7 +226,7 @@ export function playSynchronizedSpeech(options: SpeechSyncOptions): SpeechContro
       // Initially show the first character or start at 0
       emitProgress(0.02);
 
-      const res = await fetch('/api/tts', {
+      const res = await apiFetch('/api/tts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

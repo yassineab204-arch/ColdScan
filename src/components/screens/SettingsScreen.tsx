@@ -18,10 +18,18 @@ interface SettingsScreenProps {
   settings: AppSettings;
   onUpdateSettings: (newSettings: Partial<AppSettings>) => void;
   onResetData: () => void;
-  /** Days remaining in the free trial (0 when it has ended). */
-  trialDaysLeft?: number;
+  /** Pre-formatted countdown from the server-anchored clock, e.g. "1d 4h". */
+  trialTimeLeftLabel?: string;
+  /** Milliseconds left in the trial (0 when it has ended). */
+  trialMsLeft?: number;
   /** True when the user redeemed an access code. */
   trialUnlocked?: boolean;
+  /** ISO expiry computed by the server. */
+  trialExpiresAt?: string;
+  /** True once the trial is bound to an email. */
+  trialEmailLinked?: boolean;
+  /** Resolves true when the server bound the email to this account. */
+  onLinkEmail?: (email: string) => Promise<boolean>;
   onReplayTutorial?: () => void;
 }
 
@@ -52,10 +60,44 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   settings,
   onUpdateSettings,
   onResetData,
-  trialDaysLeft = 0,
+  trialTimeLeftLabel = '',
+  trialMsLeft = 0,
   trialUnlocked = false,
+  trialExpiresAt = '',
+  trialEmailLinked = false,
+  onLinkEmail,
   onReplayTutorial,
 }) => {
+  const [email, setEmail] = React.useState('');
+  const [emailError, setEmailError] = React.useState(false);
+  const [linking, setLinking] = React.useState(false);
+
+  const submitEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!onLinkEmail || !email.trim() || linking) return;
+
+    setLinking(true);
+    try {
+      const ok = await onLinkEmail(email);
+      setEmailError(!ok);
+      if (ok) setEmail('');
+    } finally {
+      setLinking(false);
+    }
+  };
+
+  const trialEnded = !trialUnlocked && trialMsLeft <= 0;
+  const trialUrgent = !trialUnlocked && trialMsLeft > 0 && trialMsLeft <= 6 * 60 * 60 * 1000;
+
+  const expiresLabel = (() => {
+    const parsed = Date.parse(trialExpiresAt);
+    if (Number.isNaN(parsed)) return '';
+    return new Date(parsed).toLocaleString(undefined, {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    });
+  })();
+
   const toggleDietary = (item: string) => {
     const current = settings.dietaryPreferences;
     const updated = current.includes(item)
@@ -252,26 +294,73 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           className={`rounded-2xl px-4 py-3 text-xs font-black uppercase tracking-wider ${
             trialUnlocked
               ? 'bg-mint text-pine'
-              : trialDaysLeft === 0
+              : trialEnded
                 ? 'bg-rose-50 text-rose-700'
-                : trialDaysLeft <= 2
+                : trialUrgent
                   ? 'bg-amber-50 text-amber-800'
                   : 'bg-mint text-pine'
           }`}
         >
           {trialUnlocked
             ? t('trialFullAccess', lang)
-            : trialDaysLeft === 0
+            : trialEnded
               ? t('trialEndedTitle', lang)
-              : trialDaysLeft <= 1
-                ? t('trialBannerLastDay', lang)
-                : t('trialBannerDays', lang).replace('__count__', String(trialDaysLeft))}
+              : t('trialBannerTime', lang).replace('__time__', trialTimeLeftLabel)}
         </div>
+
+        {/* Server-computed expiry, so there is no ambiguity about the deadline. */}
+        {!trialUnlocked && expiresLabel && (
+          <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+            {t('trialExpiresAt', lang).replace('__date__', expiresLabel)}
+          </p>
+        )}
+
+        {/* Bind the trial to an email so it survives clearing the browser */}
+        {!trialUnlocked && onLinkEmail && (
+          trialEmailLinked ? (
+            <p className="flex items-center gap-2 text-xs font-bold text-pine">
+              <ShieldCheck className="w-4 h-4 shrink-0 text-cold-dark" />
+              {t('trialEmailLinked', lang)}
+            </p>
+          ) : (
+            <div className="rounded-2xl bg-slate-50 border border-slate-200 p-3 space-y-2">
+              <p className="text-xs text-slate-500 leading-relaxed font-medium">
+                {t('trialSaveAccountHint', lang)}
+              </p>
+              <form onSubmit={submitEmail} className="flex gap-2">
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    setEmailError(false);
+                  }}
+                  placeholder={t('trialEmailPlaceholder', lang)}
+                  autoComplete="email"
+                  spellCheck={false}
+                  className={`min-w-0 flex-1 rounded-xl bg-white px-3 py-2.5 text-[13px] font-semibold text-pine placeholder:text-slate-400 border outline-none ${
+                    emailError ? 'border-red-400' : 'border-slate-200 focus:border-cold'
+                  }`}
+                />
+                <button
+                  type="submit"
+                  disabled={linking}
+                  className="shrink-0 rounded-xl bg-pine px-4 py-2.5 text-[11px] font-black uppercase tracking-widest text-cold hover:bg-pine-light disabled:opacity-60"
+                >
+                  {linking ? '…' : t('trialSaveAccountSubmit', lang)}
+                </button>
+              </form>
+              {emailError && (
+                <p className="text-xs font-semibold text-red-600">{t('trialEmailInvalid', lang)}</p>
+              )}
+            </div>
+          )
+        )}
 
         {!trialUnlocked && (
           <>
             <p className="text-xs text-slate-500 leading-relaxed font-medium">
-              {t('trialEndedBody', lang)}
+              {t('trialEndedBody', lang).replace('__hours__', '48')}
             </p>
             <div className="flex flex-col gap-2">
               <a
