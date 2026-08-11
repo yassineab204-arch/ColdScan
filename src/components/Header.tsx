@@ -43,6 +43,7 @@ export const Header: React.FC<HeaderProps> = ({
 
   const NAV_LINKS: { id: TabType; label: string }[] = [
     { id: 'home', label: t('home', lang) },
+    { id: 'inventory', label: t('fridge', lang) },
     { id: 'scan', label: t('scan', lang) },
     { id: 'recipes', label: t('recipes', lang) },
     { id: 'shopping', label: t('shopping', lang) },
@@ -94,7 +95,7 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
 
           {/* Desktop nav links */}
-          <nav className="hidden md:flex items-center gap-1" aria-label="Main navigation">
+          <nav className="hidden xl:flex items-center gap-1" aria-label="Main navigation">
             {NAV_LINKS.map((link) => {
               const isActive = activeTab === link.id;
               return (
@@ -187,7 +188,7 @@ export const Header: React.FC<HeaderProps> = ({
             {/* Primary CTA */}
             <button
               onClick={() => go('scan')}
-              className="hidden md:inline-flex items-center gap-2 rounded-full bg-cold px-5 py-2.5 text-sm font-bold text-pine-deep shadow-[0_10px_26px_-10px_rgba(34,197,94,0.8)] transition-all duration-200 hover:bg-cold/90 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98]"
+              className="hidden xl:inline-flex items-center gap-2 rounded-full bg-cold px-5 py-2.5 text-sm font-bold text-pine-deep shadow-[0_10px_26px_-10px_rgba(34,197,94,0.8)] transition-all duration-200 hover:bg-cold/90 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98]"
             >
               <Camera className="h-4 w-4" strokeWidth={2.4} />
               {t('scanMyFridge', lang)}
@@ -198,7 +199,7 @@ export const Header: React.FC<HeaderProps> = ({
               onClick={() => go('settings')}
               aria-label={t('settings', lang)}
               title={t('settings', lang)}
-              className={`hidden md:inline-flex items-center gap-2 rounded-full px-4 py-2.5 text-sm font-bold transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] ${
+              className={`hidden xl:inline-flex items-center gap-2 rounded-full px-4 py-2.5 text-sm font-bold transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] ${
                 activeTab === 'settings'
                   ? 'bg-pine text-white shadow-[0_8px_20px_-8px_rgba(11,61,46,0.45)]'
                   : 'bg-white text-ink/70 ring-1 ring-ink/10 hover:bg-ink/[0.04] hover:text-pine'
@@ -213,7 +214,7 @@ export const Header: React.FC<HeaderProps> = ({
               onClick={() => go('settings')}
               aria-label={t('settings', lang)}
               title={t('settings', lang)}
-              className={`md:hidden inline-flex h-10 w-10 items-center justify-center rounded-xl ring-1 transition-colors ${
+              className={`xl:hidden inline-flex h-10 w-10 items-center justify-center rounded-xl ring-1 transition-colors ${
                 activeTab === 'settings'
                   ? 'bg-pine text-white ring-pine shadow-[0_8px_20px_-8px_rgba(11,61,46,0.45)]'
                   : 'bg-white/80 text-pine ring-ink/10 hover:bg-mint'
@@ -225,7 +226,7 @@ export const Header: React.FC<HeaderProps> = ({
             {/* Mobile hamburger */}
             <button
               onClick={() => setMenuOpen((v) => !v)}
-              className="md:hidden flex h-10 w-10 items-center justify-center rounded-xl bg-white/80 ring-1 ring-ink/10 text-pine transition-colors hover:bg-mint"
+              className="xl:hidden flex h-10 w-10 items-center justify-center rounded-xl bg-white/80 ring-1 ring-ink/10 text-pine transition-colors hover:bg-mint"
               aria-label={menuOpen ? 'Close menu' : 'Open menu'}
               aria-expanded={menuOpen}
             >
@@ -237,7 +238,7 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Mobile menu panel */}
       {menuOpen && (
-        <div className="md:hidden border-t border-ink/[0.06] bg-white/95 backdrop-blur-xl">
+        <div className="xl:hidden border-t border-ink/[0.06] bg-white/95 backdrop-blur-xl">
           <div className="mx-auto max-w-6xl px-4 py-4 space-y-1">
             {NAV_LINKS.map((link) => {
               const isActive = activeTab === link.id;

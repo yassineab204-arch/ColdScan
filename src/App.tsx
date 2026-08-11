@@ -1,9 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { TabType, FoodItem, Recipe, ShoppingItem, AppSettings } from './types';
 import { 
-  INITIAL_INVENTORY, 
-  DEFAULT_RECIPES, 
-  DEFAULT_SHOPPING_LIST, 
   DEFAULT_SETTINGS 
 } from './data/mockData';
 import { Header } from './components/Header';
@@ -40,29 +37,35 @@ export default function App() {
   const [accessNotice, setAccessNotice] = useState<string | null>(null);
 
   // Persistent State
-  const [inventory, setInventory] = useState<FoodItem[]>(() => {
-    const saved = localStorage.getItem('coldscan_inventory');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length === 0) return INITIAL_INVENTORY;
-        return parsed;
-      } catch {
-        return INITIAL_INVENTORY;
-      }
+  // A new fridge is empty. Sample items must never be treated as a user's food.
+  // The legacy-ID check also removes the old bundled demo content for people who
+  // opened a previous version before scanning anything themselves.
+  const readStoredList = <T,>(key: string, legacyIdPrefix: string): T[] => {
+    try {
+      const saved = localStorage.getItem(key);
+      if (!saved) return [];
+      const parsed: unknown = JSON.parse(saved);
+      if (!Array.isArray(parsed)) return [];
+      const isLegacyDemo = parsed.length > 0 && parsed.every(
+        (item) => typeof item === 'object' && item !== null &&
+          typeof (item as { id?: unknown }).id === 'string' &&
+          (item as { id: string }).id.startsWith(legacyIdPrefix)
+      );
+      return isLegacyDemo ? [] : parsed as T[];
+    } catch {
+      return [];
     }
-    return INITIAL_INVENTORY;
-  });
+  };
 
-  const [recipes, setRecipes] = useState<Recipe[]>(() => {
-    const saved = localStorage.getItem('coldscan_recipes');
-    return saved ? JSON.parse(saved) : DEFAULT_RECIPES;
-  });
-
-  const [shoppingList, setShoppingList] = useState<ShoppingItem[]>(() => {
-    const saved = localStorage.getItem('coldscan_shopping');
-    return saved ? JSON.parse(saved) : DEFAULT_SHOPPING_LIST;
-  });
+  const [inventory, setInventory] = useState<FoodItem[]>(() =>
+    readStoredList<FoodItem>('coldscan_inventory', 'item-')
+  );
+  const [recipes, setRecipes] = useState<Recipe[]>(() =>
+    readStoredList<Recipe>('coldscan_recipes', 'recipe-')
+  );
+  const [shoppingList, setShoppingList] = useState<ShoppingItem[]>(() =>
+    readStoredList<ShoppingItem>('coldscan_shopping', 'shop-')
+  );
 
   const [settings, setSettings] = useState<AppSettings>(() => {
     const saved = localStorage.getItem('coldscan_settings');
@@ -322,10 +325,10 @@ export default function App() {
   };
 
   const handleResetData = () => {
-    if (confirm('Reset ColdScan demo data to default clean state?')) {
-      setInventory(INITIAL_INVENTORY);
-      setRecipes(DEFAULT_RECIPES);
-      setShoppingList(DEFAULT_SHOPPING_LIST);
+    if (confirm('Clear all of your ColdScan data? This cannot be undone.')) {
+      setInventory([]);
+      setRecipes([]);
+      setShoppingList([]);
       setSettings(DEFAULT_SETTINGS);
       // Clearing local demo data is safe: the trial lives on the server, keyed
       // to the account in an HttpOnly cookie, so this cannot hand out a new one.
