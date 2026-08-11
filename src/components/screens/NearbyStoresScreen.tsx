@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { ShoppingItem, Recipe, FoodItem, LanguageType } from '../../types';
 import { t, getLocalizedFoodItemName, getLocalizedCategory } from '../../utils/i18n';
+import { apiFetch } from '../../utils/api';
 
 interface NearbyStoresScreenProps {
   shoppingList: ShoppingItem[];
@@ -356,7 +357,7 @@ export const NearbyStoresScreen: React.FC<NearbyStoresScreenProps> = ({
     setSearchingManual(true);
     setErrorMsg(null);
     try {
-      const response = await fetch('/api/geocode', {
+      const response = await apiFetch('/api/geocode', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query, language: lang }),
@@ -403,7 +404,7 @@ export const NearbyStoresScreen: React.FC<NearbyStoresScreenProps> = ({
     setSelectedStoreId(null);
 
     try {
-      const response = await fetch('/api/nearby-stores', {
+      const response = await apiFetch('/api/nearby-stores', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ lat: center.lat, lon: center.lon, radius: rad }),

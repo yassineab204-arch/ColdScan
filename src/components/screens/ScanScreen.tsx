@@ -17,6 +17,7 @@ import { FoodItem, ScanResult, AppSettings, LanguageType } from '../../types';
 import { SAMPLE_FRIDGE_PHOTOS } from '../../data/mockData';
 import { t } from '../../utils/i18n';
 import { downscaleImage } from '../../utils/image';
+import { apiFetch, TrialExpiredError } from '../../utils/api';
 
 interface ScanScreenProps {
   settings?: AppSettings;
@@ -121,7 +122,7 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({
 
 
       // Send to server API
-      const response = await fetch('/api/scan-fridge', {
+      const response = await apiFetch('/api/scan-fridge', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -140,7 +141,12 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({
       }
     } catch (err: any) {
       console.error('Scan error:', err);
-      
+
+      // Trial over: the server refused the scan. Never fall through to the demo
+      // data below — that would hand an expired user a fake "working" scan.
+      // App.tsx listens for the same event and swaps in the contact screen.
+      if (err instanceof TrialExpiredError) return;
+
       // Fallback mock scan if network error occurs
       setScanResult({
         itemsFound: [

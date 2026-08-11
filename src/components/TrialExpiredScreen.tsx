@@ -1,42 +1,87 @@
 import React, { useState } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
-import { Lock, Instagram, Mail, KeyRound, ArrowRight, Home, Refrigerator } from 'lucide-react';
+import {
+  Lock,
+  Instagram,
+  Mail,
+  KeyRound,
+  ArrowRight,
+  Home,
+  Refrigerator,
+  Loader2,
+  MailCheck,
+} from 'lucide-react';
 import { LanguageType } from '../types';
 import { t } from '../utils/i18n';
-import { TRIAL_DAYS } from '../utils/trial';
+import { TRIAL_HOURS } from '../utils/trial';
 
 const INSTAGRAM_URL = 'https://www.instagram.com/cold.scan/';
 const BUSINESS_EMAIL = 'yassineab2014@gmail.com';
-const MAILTO_LINK = `mailto:${BUSINESS_EMAIL}?subject=ColdScan%20access%20request&body=Hi%20ColdScan%2C%20my%207-day%20trial%20ended%20and%20I%27d%20like%20to%20keep%20using%20the%20app.`;
+const MAILTO_LINK = `mailto:${BUSINESS_EMAIL}?subject=ColdScan%20access%20request&body=Hi%20ColdScan%2C%20my%20free%20trial%20ended%20and%20I%27d%20like%20to%20keep%20using%20the%20app.`;
 
 interface TrialExpiredScreenProps {
   lang: LanguageType;
-  /** Returns true when the code was accepted. */
-  onRedeemCode: (code: string) => boolean;
+  /** True once the account is bound to an email. */
+  emailLinked: boolean;
+  /** Resolves true when the server accepted the code. */
+  onRedeemCode: (code: string) => Promise<boolean>;
+  /** Resolves true when the server bound the email to this account. */
+  onLinkEmail: (email: string) => Promise<boolean>;
   onBackHome: () => void;
 }
 
 const ease = [0.22, 1, 0.36, 1] as const;
 
 /**
- * Shown in place of the app screens once the free trial is over. The marketing
- * home page stays reachable — only the product tabs are gated.
+ * Shown in place of the app screens once the 48-hour trial is over. The
+ * marketing home page stays reachable — only the product tabs are gated.
+ *
+ * Both forms below submit to the server; this component never decides anything
+ * about access itself, it just renders whatever the server came back with.
  */
 export const TrialExpiredScreen: React.FC<TrialExpiredScreenProps> = ({
   lang,
+  emailLinked,
   onRedeemCode,
+  onLinkEmail,
   onBackHome,
 }) => {
   const reduce = useReducedMotion();
-  const [code, setCode] = useState('');
-  const [error, setError] = useState(false);
 
-  const submit = (e: React.FormEvent) => {
+  const [code, setCode] = useState('');
+  const [codeError, setCodeError] = useState(false);
+  const [redeeming, setRedeeming] = useState(false);
+
+  const [email, setEmail] = useState('');
+  const [emailError, setEmailError] = useState(false);
+  const [linking, setLinking] = useState(false);
+
+  const submitCode = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!code.trim()) return;
-    const ok = onRedeemCode(code);
-    setError(!ok);
-    if (ok) setCode('');
+    if (!code.trim() || redeeming) return;
+
+    setRedeeming(true);
+    try {
+      const ok = await onRedeemCode(code);
+      setCodeError(!ok);
+      if (ok) setCode('');
+    } finally {
+      setRedeeming(false);
+    }
+  };
+
+  const submitEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email.trim() || linking) return;
+
+    setLinking(true);
+    try {
+      const ok = await onLinkEmail(email);
+      setEmailError(!ok);
+      if (ok) setEmail('');
+    } finally {
+      setLinking(false);
+    }
   };
 
   return (
@@ -57,7 +102,7 @@ export const TrialExpiredScreen: React.FC<TrialExpiredScreenProps> = ({
             {t('trialEndedTitle', lang)}
           </h2>
           <p className="relative mt-3 text-[15px] leading-relaxed text-ink/70 font-medium">
-            {t('trialEndedBody', lang).replace('7', String(TRIAL_DAYS))}
+            {t('trialEndedBody', lang).replace('__hours__', String(TRIAL_HOURS))}
           </p>
           <p className="relative mt-4 text-xs font-bold uppercase tracking-[0.16em] text-ink/40">
             {t('trialThanks', lang)}
@@ -97,6 +142,62 @@ export const TrialExpiredScreen: React.FC<TrialExpiredScreenProps> = ({
           </a>
         </div>
 
+        {/* Save the account to an email so support can find it */}
+        <div className="border-t border-ink/[0.07] px-6 py-6">
+          {emailLinked ? (
+            <p className="flex items-center gap-2 text-xs font-bold text-pine">
+              <MailCheck className="h-4 w-4 shrink-0 text-cold-dark" strokeWidth={2.6} />
+              {t('trialEmailLinked', lang)}
+            </p>
+          ) : (
+            <>
+              <label
+                htmlFor="coldscan-trial-email"
+                className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.14em] text-ink/50"
+              >
+                <Mail className="h-3.5 w-3.5" strokeWidth={2.6} />
+                {t('trialSaveAccount', lang)}
+              </label>
+              <p className="mt-2 text-xs leading-relaxed text-ink/50 font-medium">
+                {t('trialSaveAccountHint', lang)}
+              </p>
+
+              <form onSubmit={submitEmail} className="mt-3 flex gap-2">
+                <input
+                  id="coldscan-trial-email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    setEmailError(false);
+                  }}
+                  placeholder={t('trialEmailPlaceholder', lang)}
+                  autoComplete="email"
+                  spellCheck={false}
+                  className={`min-w-0 flex-1 rounded-full bg-white px-4 py-3 text-sm font-semibold text-pine placeholder:text-ink/35 ring-1 outline-none transition-shadow ${
+                    emailError ? 'ring-red-400 focus:ring-red-500' : 'ring-ink/10 focus:ring-cold'
+                  }`}
+                />
+                <button
+                  type="submit"
+                  disabled={linking}
+                  className="shrink-0 rounded-full bg-white px-5 py-3 text-sm font-bold text-pine ring-1 ring-ink/10 transition-all hover:ring-cold/60 active:scale-[0.98] disabled:opacity-60"
+                >
+                  {linking ? (
+                    <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2.6} />
+                  ) : (
+                    t('trialSaveAccountSubmit', lang)
+                  )}
+                </button>
+              </form>
+
+              {emailError && (
+                <p className="mt-2 text-xs font-semibold text-red-600">{t('trialEmailInvalid', lang)}</p>
+              )}
+            </>
+          )}
+        </div>
+
         {/* Access code */}
         <div className="border-t border-ink/[0.07] bg-[#F7FBF8] px-6 py-6">
           <label
@@ -107,30 +208,35 @@ export const TrialExpiredScreen: React.FC<TrialExpiredScreenProps> = ({
             {t('trialHaveCode', lang)}
           </label>
 
-          <form onSubmit={submit} className="mt-3 flex gap-2">
+          <form onSubmit={submitCode} className="mt-3 flex gap-2">
             <input
               id="coldscan-access-code"
               value={code}
               onChange={(e) => {
                 setCode(e.target.value);
-                setError(false);
+                setCodeError(false);
               }}
               placeholder={t('trialCodePlaceholder', lang)}
               autoComplete="off"
               spellCheck={false}
               className={`min-w-0 flex-1 rounded-full bg-white px-4 py-3 text-sm font-semibold text-pine placeholder:text-ink/35 ring-1 outline-none transition-shadow ${
-                error ? 'ring-red-400 focus:ring-red-500' : 'ring-ink/10 focus:ring-cold'
+                codeError ? 'ring-red-400 focus:ring-red-500' : 'ring-ink/10 focus:ring-cold'
               }`}
             />
             <button
               type="submit"
-              className="shrink-0 rounded-full bg-pine px-5 py-3 text-sm font-bold text-cold transition-all hover:bg-pine-light active:scale-[0.98]"
+              disabled={redeeming}
+              className="shrink-0 rounded-full bg-pine px-5 py-3 text-sm font-bold text-cold transition-all hover:bg-pine-light active:scale-[0.98] disabled:opacity-60"
             >
-              {t('trialCodeSubmit', lang)}
+              {redeeming ? (
+                <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2.6} />
+              ) : (
+                t('trialCodeSubmit', lang)
+              )}
             </button>
           </form>
 
-          {error && (
+          {codeError && (
             <p className="mt-2 text-xs font-semibold text-red-600">{t('trialCodeInvalid', lang)}</p>
           )}
 

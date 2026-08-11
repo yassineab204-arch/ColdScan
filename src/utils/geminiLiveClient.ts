@@ -15,6 +15,7 @@
  */
 
 import type { Session } from '@google/genai';
+import { apiFetch } from './api';
 
 export interface GeminiLiveClientOptions {
   language?: string;
@@ -66,7 +67,7 @@ export class GeminiLiveClient {
     try {
       // 1. Ask our own server for a short-lived token. The fridge inventory and
       //    active recipe are baked into the token's locked system instruction.
-      const tokenRes = await fetch('/api/live-token', {
+      const tokenRes = await apiFetch('/api/live-token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

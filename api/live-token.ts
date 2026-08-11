@@ -1,5 +1,6 @@
 import { GoogleGenAI, Modality } from '@google/genai';
 import { ApiRequest, ApiResponse, fail, readBody } from './_lib/http.js';
+import { requireActiveTrial } from './_lib/trial.js';
 import {
   DEFAULT_VOICE,
   LIVE_MODEL,
@@ -21,6 +22,10 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     res.setHeader('Allow', 'GET, POST');
     return res.status(405).json({ error: `Method ${req.method} not allowed` });
   }
+
+  // Server-side trial gate. This one matters most: without it an expired user
+  // could still mint Gemini Live tokens and burn real API quota.
+  if (!(await requireActiveTrial(req, res))) return;
 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {

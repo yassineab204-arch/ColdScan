@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { X, Sparkles, Send, Utensils, AlertTriangle, ShoppingBag, ChefHat, Loader2 } from 'lucide-react';
 import { FoodItem, AppSettings, LanguageType } from '../types';
 import { t } from '../utils/i18n';
+import { apiFetch } from '../utils/api';
 
 interface AssistantChatModalProps {
   isOpen: boolean;
@@ -86,7 +87,7 @@ export const AssistantChatModal: React.FC<AssistantChatModalProps> = ({
     setIsSending(true);
 
     try {
-      const res = await fetch('/api/ai-chat', {
+      const res = await apiFetch('/api/ai-chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

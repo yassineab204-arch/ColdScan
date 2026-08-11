@@ -25,6 +25,7 @@ import { Recipe, FoodItem, LanguageType, AppSettings } from '../types';
 import { t, getLocalizedRecipeName, getLocalizedRecipeInstructions } from '../utils/i18n';
 import { playSynchronizedSpeech, SpeechController } from '../utils/speechSync';
 import { SynchronizedSpeechText } from './SynchronizedSpeechText';
+import { apiFetch } from '../utils/api';
 
 interface RecipeVoiceBotModalProps {
   isOpen: boolean;
@@ -395,7 +396,7 @@ export const RecipeVoiceBotModal: React.FC<RecipeVoiceBotModalProps> = ({
     setIsLoading(true);
 
     try {
-      const res = await fetch('/api/recipe-voice-bot', {
+      const res = await apiFetch('/api/recipe-voice-bot', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

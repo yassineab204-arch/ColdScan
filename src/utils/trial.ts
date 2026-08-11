@@ -1,156 +1,160 @@
 /**
- * ColdScan free-trial access control.
+ * ColdScan free-trial CLIENT.
  *
- * Every new visitor gets a 7-day free trial that starts the first time the app is
- * opened. When it ends, the app screens lock and the user is asked to contact the
- * ColdScan team for continued access; the team can hand out an access code that
- * unlocks the app again (or extends the trial).
+ * This file holds NO trial logic. The trial start time, the 48-hour expiry and
+ * the access decision all live on the server (`api/_lib/trial.ts`), keyed to
+ * the user's account and stored in a shared datastore. This module only:
  *
- * Honest limitation: this is a browser-side gate persisted in `localStorage`
- * (no backend / user accounts exist in ColdScan yet). It is a real product gate
- * for normal users, not a security boundary — a determined user can clear their
- * storage and start a new trial. Turning this into something enforceable needs
- * accounts + a server, which is a separate piece of work.
+ *   - asks the server what the current status is,
+ *   - sends the three user actions (link email, redeem code, tutorial seen),
+ *   - caches the last answer in memory so the UI can render immediately.
+ *
+ * Nothing here is authoritative. Clearing localStorage does not restart the
+ * trial, because there is nothing here to clear: the identity lives in an
+ * HttpOnly cookie the page cannot touch, and the clock lives on the server.
+ * Editing this file in devtools also achieves nothing — every premium API
+ * endpoint re-checks the trial server-side and returns 402 when it is over.
  */
 
-export const TRIAL_DAYS = 7;
-export const TRIAL_STORAGE_KEY = 'coldscan_trial';
+export const TRIAL_HOURS = 48;
+export const TRIAL_DAYS = 2;
 
-export interface TrialState {
-  /** ISO date when the trial clock started (first app open). */
+export interface TrialStatus {
+  accountId: string;
+  /** ISO start time, from the server. */
   startedAt: string;
-  /** Full access granted through an access code. */
+  /** ISO expiry, computed by the server. */
+  expiresAt: string;
+  msRemaining: number;
+  hoursRemaining: number;
+  daysRemaining: number;
+  active: boolean;
+  expired: boolean;
   unlocked: boolean;
-  /** Extra trial days granted through an extension code. */
-  extraDays: number;
-  /** The first-run tutorial has been completed or skipped. */
+  emailLinked: boolean;
   tutorialSeen: boolean;
+  trialHours: number;
+  /** Server clock at the time of the response. */
+  serverTime: string;
 }
 
-const DAY_MS = 24 * 60 * 60 * 1000;
+/** Status used before the first server response arrives. */
+export const UNKNOWN_STATUS: TrialStatus = {
+  accountId: '',
+  startedAt: '',
+  expiresAt: '',
+  msRemaining: 0,
+  hoursRemaining: TRIAL_HOURS,
+  daysRemaining: TRIAL_DAYS,
+  // Optimistic until we know: avoids a lock-screen flash on a slow network.
+  // The server still refuses any premium call, so this cannot leak access.
+  active: true,
+  expired: false,
+  unlocked: false,
+  emailLinked: false,
+  tutorialSeen: true,
+  trialHours: TRIAL_HOURS,
+  serverTime: '',
+};
 
-export function createTrialState(now: Date = new Date()): TrialState {
-  return {
-    startedAt: now.toISOString(),
-    unlocked: false,
-    extraDays: 0,
-    tutorialSeen: false,
-  };
+/** `credentials: 'same-origin'` so the HttpOnly session cookie is sent. */
+async function trialRequest(init?: RequestInit): Promise<Response> {
+  return fetch('/api/trial', {
+    credentials: 'same-origin',
+    cache: 'no-store',
+    ...init,
+  });
 }
 
-function sanitize(raw: unknown): TrialState | null {
-  if (!raw || typeof raw !== 'object') return null;
-  const value = raw as Partial<TrialState>;
-  const started = typeof value.startedAt === 'string' ? Date.parse(value.startedAt) : NaN;
-  if (Number.isNaN(started)) return null;
-
-  // Guard against a clock set into the future making the trial last forever.
-  const startedAt = new Date(Math.min(started, Date.now())).toISOString();
-
-  return {
-    startedAt,
-    unlocked: value.unlocked === true,
-    extraDays: typeof value.extraDays === 'number' && value.extraDays > 0 ? Math.floor(value.extraDays) : 0,
-    tutorialSeen: value.tutorialSeen === true,
-  };
+function isStatus(value: unknown): value is TrialStatus {
+  return Boolean(value) && typeof (value as TrialStatus).expiresAt === 'string';
 }
 
-/** Reads the stored trial, creating (and persisting) a fresh one on first open. */
-export function loadTrialState(): TrialState {
+/** Fetches the current status. Starts the clock on the very first call. */
+export async function fetchTrialStatus(): Promise<TrialStatus | null> {
   try {
-    const saved = localStorage.getItem(TRIAL_STORAGE_KEY);
-    const parsed = saved ? sanitize(JSON.parse(saved)) : null;
-    if (parsed) return parsed;
+    const res = await trialRequest({ method: 'GET' });
+    const data = await res.json();
+    return isStatus(data?.trial) ? data.trial : null;
   } catch {
-    /* corrupted entry — fall through and start a new trial */
-  }
-
-  const fresh = createTrialState();
-  saveTrialState(fresh);
-  return fresh;
-}
-
-export function saveTrialState(state: TrialState): void {
-  try {
-    localStorage.setItem(TRIAL_STORAGE_KEY, JSON.stringify(state));
-  } catch {
-    /* storage unavailable (private mode) — the session simply won't persist */
+    return null;
   }
 }
 
-/** Total days the trial runs for, including any granted extensions. */
-export function trialLengthDays(state: TrialState): number {
-  return TRIAL_DAYS + state.extraDays;
+async function postAction(body: Record<string, unknown>): Promise<{
+  ok: boolean;
+  trial: TrialStatus | null;
+  granted?: 'unlock' | 'extend';
+  hours?: number;
+  error?: string;
+}> {
+  try {
+    const res = await trialRequest({
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    return {
+      ok: res.ok && data?.success === true,
+      trial: isStatus(data?.trial) ? data.trial : null,
+      granted: data?.granted,
+      hours: data?.hours,
+      error: typeof data?.error === 'string' ? data.error : undefined,
+    };
+  } catch {
+    return { ok: false, trial: null };
+  }
 }
 
-export function trialEndsAt(state: TrialState): Date {
-  return new Date(Date.parse(state.startedAt) + trialLengthDays(state) * DAY_MS);
+/**
+ * Binds the trial to an email so it follows the person across browsers and
+ * devices — and so a cleared browser resumes the SAME clock rather than
+ * getting a new trial.
+ */
+export function linkTrialEmail(email: string) {
+  return postAction({ action: 'link-email', email });
 }
 
-/** Whole days left, rounded up. 0 means the trial is over. */
-export function trialDaysLeft(state: TrialState, now: Date = new Date()): number {
-  const remaining = trialEndsAt(state).getTime() - now.getTime();
-  if (remaining <= 0) return 0;
-  return Math.max(1, Math.ceil(remaining / DAY_MS));
+export function redeemAccessCode(code: string) {
+  return postAction({ action: 'redeem-code', code });
 }
 
-/** True when the app screens should be locked behind the contact screen. */
-export function isAccessLocked(state: TrialState, now: Date = new Date()): boolean {
-  if (state.unlocked) return false;
-  return trialDaysLeft(state, now) === 0;
+export function markTutorialSeen() {
+  return postAction({ action: 'tutorial-seen' });
 }
 
 /* ------------------------------------------------------------------ *
- * Access codes
+ * Display helpers (presentation only — never access decisions)
  * ------------------------------------------------------------------ */
 
 /**
- * Codes are compared by hash so they are not sitting in the bundle as plain
- * text. Again: client-side only, so treat them as convenience keys you hand out
- * after someone contacts you, not as secrets.
+ * Remaining time recomputed locally between polls, anchored to the server's
+ * expiry and its clock offset so a wrong device clock cannot add time.
  */
-function hashCode(value: string): string {
-  let hash = 0x811c9dc5;
-  for (let i = 0; i < value.length; i += 1) {
-    hash ^= value.charCodeAt(i);
-    hash = Math.imul(hash, 0x01000193) >>> 0;
-  }
-  return hash.toString(16).padStart(8, '0');
+export function remainingMs(status: TrialStatus, clockSkewMs: number): number {
+  if (status.unlocked) return Number.POSITIVE_INFINITY;
+  const expires = Date.parse(status.expiresAt);
+  if (Number.isNaN(expires)) return status.msRemaining;
+  return Math.max(0, expires - (Date.now() + clockSkewMs));
 }
 
-function normalizeCode(code: string): string {
-  return code.trim().toUpperCase().replace(/\s+/g, '');
+/** serverTime - deviceTime, so local countdowns follow the server's clock. */
+export function clockSkew(status: TrialStatus): number {
+  const server = Date.parse(status.serverTime);
+  return Number.isNaN(server) ? 0 : server - Date.now();
 }
 
-/** hash -> what the code grants */
-const ACCESS_CODES: Record<string, { type: 'unlock' } | { type: 'extend'; days: number }> = {
-  // COLDSCAN-FULL-2026  → permanent full access
-  [hashCode('COLDSCAN-FULL-2026')]: { type: 'unlock' },
-  // COLDSCAN-PLUS7      → 7 more trial days
-  [hashCode('COLDSCAN-PLUS7')]: { type: 'extend', days: 7 },
-  // COLDSCAN-PLUS30     → 30 more trial days
-  [hashCode('COLDSCAN-PLUS30')]: { type: 'extend', days: 30 },
-};
+/** Compact countdown: "1d 4h", "7h 12m", "9m". */
+export function formatRemaining(ms: number): string {
+  if (!Number.isFinite(ms) || ms <= 0) return '0m';
 
-export type RedeemResult =
-  | { ok: true; state: TrialState; granted: 'unlock' | 'extend'; days?: number }
-  | { ok: false };
+  const totalMinutes = Math.floor(ms / 60000);
+  const days = Math.floor(totalMinutes / (60 * 24));
+  const hours = Math.floor((totalMinutes % (60 * 24)) / 60);
+  const minutes = totalMinutes % 60;
 
-/** Applies an access code to the trial state. Returns `{ ok: false }` if unknown. */
-export function redeemAccessCode(code: string, state: TrialState, now: Date = new Date()): RedeemResult {
-  const grant = ACCESS_CODES[hashCode(normalizeCode(code))];
-  if (!grant) return { ok: false };
-
-  if (grant.type === 'unlock') {
-    return { ok: true, state: { ...state, unlocked: true }, granted: 'unlock' };
-  }
-
-  // Extending an already-expired trial restarts the clock from today so the
-  // user really gets the full number of extra days.
-  const expired = isAccessLocked(state, now);
-  const next: TrialState = expired
-    ? { ...state, startedAt: now.toISOString(), extraDays: Math.max(0, grant.days - TRIAL_DAYS) }
-    : { ...state, extraDays: state.extraDays + grant.days };
-
-  return { ok: true, state: next, granted: 'extend', days: grant.days };
+  if (days > 0) return `${days}d ${hours}h`;
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  return `${Math.max(1, minutes)}m`;
 }

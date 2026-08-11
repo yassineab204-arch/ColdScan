@@ -27,7 +27,9 @@ should make it feel more like a serious real-world product.
 - **Backend:** Vercel serverless functions — every file in `api/` is its own endpoint. No framework.
 - **Local dev server:** `server.ts` (Express + Vite middleware) is **development only**. It mounts the same `api/` handlers on one origin so `fetch('/api/...')` works identically locally and on Vercel. It is NOT used in production.
 - **AI:** Google Gemini via `@google/genai`. Server-side client in `api/_lib/genai.ts`.
-- **State:** React state persisted to `localStorage` (keys prefixed `coldscan_*`). No backend database.
+- **State:** App data (inventory, recipes, settings) is React state persisted to
+  `localStorage` (keys prefixed `coldscan_*`). The **free trial is the exception**:
+  it is server-authoritative, stored in Redis and keyed to an account — see below.
 - **Path alias:** `@` → repo root (see `vite.config.ts`).
 - **Type check:** `npm run lint` runs `tsc --noEmit`. Run it before finishing.
 
@@ -43,7 +45,11 @@ src/
     screens/                  # One component per tab (Home, Scan, Inventory, Recipes, ShoppingList, CostEstimate, Settings)
     *Modal.tsx                # LiveVoiceModal, RecipeVoiceBotModal, CookingWizardModal, ItemModal, Settings
   data/mockData.ts            # Seed/default inventory, recipes, shopping list, settings
+  hooks/
+    useTrial.ts               # Mirrors /api/trial, polls + rechecks on focus and on 402
   utils/
+    api.ts                    # apiFetch(): sends the session cookie, turns 402 into TrialExpiredError
+    trial.ts                  # Thin client for /api/trial — NO trial logic lives here
     i18n.ts                   # UI translations (9 languages) + localized name helpers
     currency.ts               # Currency conversion/formatting
     image.ts                  # Client-side downscale to 1280px/JPEG before upload
@@ -53,7 +59,11 @@ api/
   _lib/genai.ts               # getGenAI(), TEXT_MODEL, TTS_MODEL, languageMandate()
   _lib/http.ts                # methodGuard, readBody, fail, ApiRequest/ApiResponse
   _lib/livePersona.ts         # SINGLE SOURCE OF TRUTH for Live voice model/voice/persona
-  health.ts                   # GET, reports geminiKeyConfigured
+  _lib/kv.ts                  # Redis-over-HTTP client (Upstash / Vercel KV), in-memory dev fallback
+  _lib/secrets.ts             # HMAC helpers keyed with TRIAL_SECRET (never hardcoded)
+  _lib/trial.ts               # SINGLE SOURCE OF TRUTH for the 48h trial + requireActiveTrial()
+  health.ts                   # GET, reports which env vars are configured (booleans only)
+  trial.ts                    # GET status; POST link-email / redeem-code / tutorial-seen
   live-token.ts               # Mints single-use Gemini Live ephemeral token
   scan-fridge.ts              # POST, vision analysis of a fridge photo
   generate-recipes.ts         # POST, recipes from inventory
@@ -79,7 +89,9 @@ api/
 6. **No fake functionality.** No invented APIs, credentials, or env vars. No
    hardcoded "AI" data where a real call is expected. If a feature can't really
    work (e.g. maps without an API key), say so and provide a fallback.
-7. **No secrets in the browser.** `GEMINI_API_KEY` stays server-side only.
+7. **No secrets in the browser.** `GEMINI_API_KEY`, `TRIAL_SECRET`, the Redis
+   credentials and `TRIAL_ACCESS_CODES` are server-side only. Never hardcode a
+   secret or an access code, and never prefix any of them with `VITE_`.
 8. **Test it.** Run `npm run lint` and, for UI changes, `npm run dev` and click
    through the flow. Don't claim it works if it isn't tested.
 9. **Don't break what exists.** Verify existing tabs and modals still work.
@@ -123,6 +135,33 @@ browser -> wss://...google...     (mic PCM16 16kHz <-> model audio PCM16 24kHz)
 - The token is single-use, expires 2 minutes after minting if unused, and caps the
   session at 30 minutes. Never put the API key in client code.
 
+
+## The free trial (server-enforced — do not weaken)
+
+New users get **48 hours** of full access. The rules:
+
+- **`api/_lib/trial.ts` is the single source of truth.** Trial length, expiry,
+  access codes and the account model all live there. Change it there, nowhere else.
+- **The client decides nothing.** `src/utils/trial.ts` and `src/hooks/useTrial.ts`
+  only mirror what `/api/trial` reports. Never reintroduce a `localStorage`-based
+  trial, a client-side countdown that grants access, or a hardcoded access code.
+- **Every premium endpoint must call `requireActiveTrial(req, res)`** right after
+  its method guard, and return immediately if it yields `null`. If you add a new
+  endpoint that costs money or calls Gemini, gate it too.
+- **Every client call to `/api/*` must go through `apiFetch`** (`src/utils/api.ts`)
+  so the session cookie is sent and a `402` locks the UI.
+- **No demo-data fallback on a 402.** If a call fails because the trial ended,
+  show the contact screen — never fake a successful result (see `ScanScreen.tsx`).
+- The identity cookie is `HttpOnly` + signed; the start time is written once with
+  `SET NX`; emails and device signals are stored only as HMACs.
+
+Verify changes with `npx tsx scripts/trial-selftest.ts` — 74 checks that run the
+whole suite twice, once on the in-memory fallback and once over the real Redis
+REST transport. Add `--real` to run pass 2 against the live Upstash database.
+The store is provisioned by the Vercel + Upstash Marketplace integration, which
+injects `UPSTASH_REDIS_REST_*` (or `KV_REST_API_*`) into every environment;
+`api/_lib/kv.ts` reads whichever pair is present, lazily, per invocation.
+
 ## Product principles
 
 Prioritize in this order: **working functionality -> UX -> reliability ->
@@ -146,10 +185,22 @@ Don't claim such a feature works unless it genuinely does.
 
 ## Environment
 
-Only one env var is required: `GEMINI_API_KEY` (set in `.env` locally and in
-Vercel -> Settings -> Environment Variables for all environments). See
-`.env.example`. Verify deployment with `/api/health` — `geminiKeyConfigured`
-should be `true`.
+Set these in `.env` locally and in Vercel -> Settings -> Environment Variables
+(all environments). See `.env.example` for the full explanation of each.
+
+| Name                        | Required | Purpose                                  |
+| --------------------------- | -------- | ---------------------------------------- |
+| `GEMINI_API_KEY`            | yes      | All Gemini calls                          |
+| `TRIAL_SECRET`              | yes      | Signs trial sessions, derives identifiers |
+| `UPSTASH_REDIS_REST_URL`    | yes      | Stores server-side trial start times      |
+| `UPSTASH_REDIS_REST_TOKEN`  | yes      | ^                                         |
+| `TRIAL_ACCESS_CODES`        | no       | Codes handed out after the trial ends     |
+
+`KV_REST_API_URL` / `KV_REST_API_TOKEN` work in place of the Upstash pair.
+
+Verify with `/api/health`: `geminiKeyConfigured`, `trial.secretConfigured` and
+`trial.storeConfigured` should all be `true`. Without the store the trial is not
+enforceable in production — each serverless instance would keep its own copy.
 
 ## Deploy
 

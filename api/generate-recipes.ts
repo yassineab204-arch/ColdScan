@@ -1,9 +1,14 @@
 import { Type } from '@google/genai';
 import { TEXT_MODEL, getGenAI, languageMandate } from './_lib/genai.js';
 import { ApiRequest, ApiResponse, fail, methodGuard, readBody } from './_lib/http.js';
+import { requireActiveTrial } from './_lib/trial.js';
 
 export default async function handler(req: ApiRequest, res: ApiResponse) {
   if (!methodGuard(req, res, 'POST')) return;
+
+  // Server-side trial gate: refuses the work once the 48 hours are up,
+  // regardless of anything the client claims.
+  if (!(await requireActiveTrial(req, res))) return;
 
   try {
     const { inventory = [], dietaryPreferences = [], language = 'en' } = readBody(req);
