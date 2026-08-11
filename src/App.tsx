@@ -37,34 +37,36 @@ export default function App() {
   const [accessNotice, setAccessNotice] = useState<string | null>(null);
 
   // Persistent State
-  // A new fridge is empty. Sample items must never be treated as a user's food.
-  // The legacy-ID check also removes the old bundled demo content for people who
-  // opened a previous version before scanning anything themselves.
-  const readStoredList = <T,>(key: string, legacyIdPrefix: string): T[] => {
+  // A new fridge starts empty: nobody should open ColdScan for the first time
+  // and find twelve items they never scanned. Anything the user actually saved
+  // is kept — only the exact rows from the old bundled demo seed are dropped,
+  // matched by their fixed ids ('item-1'…'item-12', 'recipe-1'…, 'shop-1'…).
+  // Manually added items look like `item-1754932100000`, so they never match.
+  const LEGACY_DEMO_ID = /^(item-([1-9]|1[0-2])|recipe-[1-4]|shop-[1-5])$/;
+
+  const readStoredList = <T,>(key: string): T[] => {
     try {
       const saved = localStorage.getItem(key);
       if (!saved) return [];
       const parsed: unknown = JSON.parse(saved);
       if (!Array.isArray(parsed)) return [];
-      const isLegacyDemo = parsed.length > 0 && parsed.every(
-        (item) => typeof item === 'object' && item !== null &&
-          typeof (item as { id?: unknown }).id === 'string' &&
-          (item as { id: string }).id.startsWith(legacyIdPrefix)
-      );
-      return isLegacyDemo ? [] : parsed as T[];
+      return (parsed as T[]).filter((entry) => {
+        const id = (entry as { id?: unknown })?.id;
+        return typeof id !== 'string' || !LEGACY_DEMO_ID.test(id);
+      });
     } catch {
       return [];
     }
   };
 
   const [inventory, setInventory] = useState<FoodItem[]>(() =>
-    readStoredList<FoodItem>('coldscan_inventory', 'item-')
+    readStoredList<FoodItem>('coldscan_inventory')
   );
   const [recipes, setRecipes] = useState<Recipe[]>(() =>
-    readStoredList<Recipe>('coldscan_recipes', 'recipe-')
+    readStoredList<Recipe>('coldscan_recipes')
   );
   const [shoppingList, setShoppingList] = useState<ShoppingItem[]>(() =>
-    readStoredList<ShoppingItem>('coldscan_shopping', 'shop-')
+    readStoredList<ShoppingItem>('coldscan_shopping')
   );
 
   const [settings, setSettings] = useState<AppSettings>(() => {
