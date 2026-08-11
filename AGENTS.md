@@ -155,7 +155,12 @@ New users get **48 hours** of full access. The rules:
 - The identity cookie is `HttpOnly` + signed; the start time is written once with
   `SET NX`; emails and device signals are stored only as HMACs.
 
-Verify changes with `npx tsx scripts/trial-selftest.ts` (36 checks, no Redis needed).
+Verify changes with `npx tsx scripts/trial-selftest.ts` — 74 checks that run the
+whole suite twice, once on the in-memory fallback and once over the real Redis
+REST transport. Add `--real` to run pass 2 against the live Upstash database.
+The store is provisioned by the Vercel + Upstash Marketplace integration, which
+injects `UPSTASH_REDIS_REST_*` (or `KV_REST_API_*`) into every environment;
+`api/_lib/kv.ts` reads whichever pair is present, lazily, per invocation.
 
 ## Product principles
 

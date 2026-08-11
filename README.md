@@ -11,30 +11,56 @@ trilingual (Darija / French / English) voice sous-chef powered by Gemini Live.
 2. Add the environment variables in **Settings → Environment Variables**, for all
    environments:
 
-   | Name                      | Required | Value                                                |
-   | ------------------------- | -------- | ---------------------------------------------------- |
-   | `GEMINI_API_KEY`          | yes      | your Gemini API key                                   |
-   | `TRIAL_SECRET`            | yes      | 32+ random chars — signs trial sessions               |
-   | `UPSTASH_REDIS_REST_URL`  | yes      | Upstash Redis REST URL (stores the trial clock)       |
-   | `UPSTASH_REDIS_REST_TOKEN`| yes      | Upstash Redis REST token                              |
-   | `TRIAL_ACCESS_CODES`      | no       | codes you hand out, e.g. `AB12-CD34:unlock`           |
+   | Name                      | Required | Set by                                          |
+   | ------------------------- | -------- | ------------------------------------------------ |
+   | `GEMINI_API_KEY`          | yes      | you                                               |
+   | `TRIAL_SECRET`            | yes      | you (see below)                                   |
+   | `UPSTASH_REDIS_REST_URL`  | yes      | **Upstash integration, automatically**            |
+   | `UPSTASH_REDIS_REST_TOKEN`| yes      | **Upstash integration, automatically**            |
+   | `TRIAL_ACCESS_CODES`      | no       | you, e.g. `AB12-CD34:unlock`                      |
 
-   Vercel's own KV integration sets `KV_REST_API_URL` / `KV_REST_API_TOKEN`
-   instead — either pair works. Generate the secret with:
+   **Redis:** connecting an Upstash database from the Vercel Marketplace injects
+   its credentials into every environment for you — nothing to copy. The app
+   accepts either `UPSTASH_REDIS_REST_*` (native Upstash resource) or
+   `KV_REST_API_*` (Vercel KV-style binding); `/api/health` reports which pair it
+   found. Keys are namespaced `coldscan:trial:*`, so one database can be shared
+   with other apps.
+
+   **Trial secret:** generate and install it without ever copying a value:
 
    ```bash
-   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+   npx vercel login && npx vercel link
+   bash scripts/setup-trial-env.sh
    ```
 
-   See [`.env.example`](.env.example) for what each one does.
+   That writes a 256-bit key to `.env` for local dev and adds a *separate* one to
+   Production and Preview, so a leaked preview value cannot forge production
+   sessions. To do it by hand instead, generate with
+   `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`.
+
+   See [`.env.example`](.env.example) for what each variable does.
 
 3. Deploy. Redeploy after adding the keys if the first build ran without them.
 
-Check `https://<your-app>.vercel.app/api/health` — `geminiKeyConfigured`,
-`trial.secretConfigured` and `trial.storeConfigured` should all be `true`.
-**If `trial.storeConfigured` is `false` the trial cannot be enforced**: each
-serverless instance keeps its own in-memory copy, so the clock effectively
-restarts at random.
+Check `https://<your-app>.vercel.app/api/health`:
+
+```jsonc
+{
+  "geminiKeyConfigured": true,
+  "trial": {
+    "hours": 48,
+    "secretConfigured": true,   // TRIAL_SECRET is set
+    "storeConfigured": true,    // Redis reachable  <-- must be true
+    "storeBinding": "upstash",  // or "vercel-kv"
+    "environment": "production"
+  }
+}
+```
+
+**If `trial.storeConfigured` is `false` the trial is not enforced**: each
+serverless instance falls back to its own in-memory copy, so the clock restarts
+unpredictably. Check both a production URL and a preview URL — they are
+configured independently.
 
 ## Local development
 
@@ -121,8 +147,15 @@ TRIAL_ACCESS_CODES="8FJ2-QW71:unlock,K93M-2RTX:extend:48"
 Run the gate's self-test with:
 
 ```bash
-npx tsx scripts/trial-selftest.ts
+npx tsx scripts/trial-selftest.ts          # 74 checks, no Redis needed
+npx tsx scripts/trial-selftest.ts --real   # same suite against the real Upstash DB
 ```
+
+The suite runs twice: once against the in-memory fallback, once over the actual
+Redis REST transport (against a local stand-in, or your real database with
+`--real` after `vercel env pull`). It also covers the failure modes — a bad
+token or an unreachable database makes the gate **fail closed** with a 503
+rather than silently granting access.
 
 ## API routes
 

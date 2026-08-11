@@ -3,13 +3,23 @@
  *
  *   npx tsx scripts/trial-selftest.ts
  *
- * Runs against the in-process fallback store (no Redis needed) and exercises
- * the behaviours that actually matter: the clock is server-owned, it cannot be
- * restarted by clearing browser state, forged cookies are rejected, and premium
- * endpoints return 402 once the 48 hours are up.
+ * The whole suite runs TWICE:
+ *   1. against the in-memory fallback store, and
+ *   2. against a local stand-in for the Upstash REST API, which exercises the
+ *      real HTTP transport in `api/_lib/kv.ts` (SET NX, EX, INCR, EXPIRE).
+ *
+ * Pass --real to run pass 2 against the actual Upstash database instead, using
+ * whatever UPSTASH_REDIS_REST_* / KV_REST_API_* credentials are in the
+ * environment (e.g. after `vercel env pull`). Keys are namespaced and cleaned
+ * up, but it does consume free-plan command quota.
+ *
+ * It verifies the behaviours that matter: the clock is server-owned, it cannot
+ * be restarted by clearing browser state, forged cookies are rejected, and
+ * premium endpoints return 402 once the 48 hours are up.
  */
 
-import { kvGet, kvSet } from '../api/_lib/kv.js';
+import { kvGet, kvSet, isPersistentStore, storeBinding } from '../api/_lib/kv.js';
+import { startFakeUpstash } from './fake-upstash.js';
 import {
   linkEmail,
   redeemCode,
@@ -50,6 +60,13 @@ function mockRes(): ApiResponse & { captured: Captured } {
   return res;
 }
 
+/**
+ * Namespaces every device signal for the current pass, so the two runs never
+ * share a fingerprint (a stale device->account link from pass 1 would point at
+ * an account that does not exist in pass 2's store).
+ */
+let passTag = 'p0';
+
 function mockReq(opts: { cookie?: string; ip?: string; ua?: string } = {}): ApiRequest {
   return {
     method: 'POST',
@@ -57,7 +74,7 @@ function mockReq(opts: { cookie?: string; ip?: string; ua?: string } = {}): ApiR
     headers: {
       ...(opts.cookie ? { cookie: opts.cookie } : {}),
       'x-forwarded-for': opts.ip ?? '203.0.113.10',
-      'user-agent': opts.ua ?? 'Mozilla/5.0 (selftest)',
+      'user-agent': `${opts.ua ?? 'Mozilla/5.0 (selftest)'} ${passTag}`,
       'accept-language': 'en-US',
     },
   };
@@ -94,8 +111,9 @@ async function rewind(accountId: string, ms: number) {
 
 /* ---------------- tests ---------------- */
 
-async function main() {
-  console.log('\nColdScan trial gate self-test\n');
+async function runSuite(label: string, tag: string) {
+  passTag = tag;
+  console.log(`\n${'='.repeat(60)}\n  ${label}\n  store: ${storeBinding()}  persistent: ${isPersistentStore()}\n${'='.repeat(60)}`);
 
   // 1 — first contact starts the clock and issues an HttpOnly cookie
   console.log('1. First contact');
@@ -196,7 +214,7 @@ async function main() {
     mockReq({ ip: '192.0.2.55', ua: 'Mozilla/5.0 (email test)' }),
     mockRes()
   );
-  await linkEmail(mockReq({ ip: '192.0.2.55' }), mockRes(), fresh, 'User@Example.COM ');
+  await linkEmail(mockReq({ ip: '192.0.2.55' }), mockRes(), fresh, `user-${passTag}@example.com `);
   await rewind(fresh.accountId, TRIAL_MS / 2);
 
   // Brand new browser AND new device: normally a fresh trial...
@@ -213,7 +231,7 @@ async function main() {
     mockReq({ ip: '192.0.2.99', ua: 'Mozilla/5.0 (brand new phone)' }),
     relinkRes,
     stranger,
-    'user@example.com'
+    `USER-${passTag}@EXAMPLE.COM`
   );
   check('email lookup is normalized', relinked.ok);
   check(
@@ -232,11 +250,61 @@ async function main() {
   // 11 — no raw personal data is stored
   console.log('\n11. Data hygiene');
   const stored = (await kvGet(`coldscan:trial:account:${fresh.accountId}`)) as string;
-  check('no raw email in the stored record', !stored.toLowerCase().includes('user@example.com'));
+  check('no raw email in the stored record', !stored.toLowerCase().includes(`user-${passTag}@example.com`));
   check('no IP address in the stored record', !stored.includes('192.0.2.55'));
   check('no secret in the stored record', !stored.includes(process.env.TRIAL_SECRET!));
 
-  console.log(`\n${passed} passed, ${failed} failed\n`);
+  check('store reports the expected backend', isPersistentStore() === (storeBinding() !== 'memory'));
+}
+
+async function main() {
+  console.log('\nColdScan trial gate self-test');
+
+  // ---- Pass 1: in-memory fallback ----
+  delete process.env.UPSTASH_REDIS_REST_URL;
+  delete process.env.UPSTASH_REDIS_REST_TOKEN;
+  delete process.env.KV_REST_API_URL;
+  delete process.env.KV_REST_API_TOKEN;
+  await runSuite('PASS 1 — in-memory fallback (no Redis configured)', 'p1');
+  const afterPass1 = { passed, failed };
+
+  // ---- Pass 2: over the Redis REST transport ----
+  const useReal = process.argv.includes('--real');
+  let fake: Awaited<ReturnType<typeof startFakeUpstash>> | null = null;
+
+  if (useReal) {
+    if (!isPersistentStore()) {
+      console.error('\n--real given but no Upstash credentials in the environment.');
+      console.error('Run `vercel env pull .env.local` (or export them) first.\n');
+      process.exit(1);
+    }
+    console.log('\nUsing the REAL Upstash database from the environment.');
+  } else {
+    fake = await startFakeUpstash();
+    process.env.UPSTASH_REDIS_REST_URL = fake.url;
+    process.env.UPSTASH_REDIS_REST_TOKEN = fake.token;
+  }
+
+  await runSuite(
+    useReal
+      ? 'PASS 2 — real Upstash Redis over REST'
+      : 'PASS 2 — Redis REST transport (local Upstash stand-in)',
+    // Unique per run so a --real pass never reuses keys from a previous run.
+    useReal ? `real-${Date.now()}` : 'p2'
+  );
+
+  if (fake) {
+    console.log(`\n  (${fake.commandCount} REST commands issued, ${fake.keys().length} keys written)`);
+    await fake.close();
+  }
+
+  const pass2 = { passed: passed - afterPass1.passed, failed: failed - afterPass1.failed };
+  console.log(`\n${'='.repeat(60)}`);
+  console.log(`  pass 1 (memory): ${afterPass1.passed} passed, ${afterPass1.failed} failed`);
+  console.log(`  pass 2 (redis):  ${pass2.passed} passed, ${pass2.failed} failed`);
+  console.log(`  TOTAL:           ${passed} passed, ${failed} failed`);
+  console.log(`${'='.repeat(60)}\n`);
+
   process.exit(failed === 0 ? 0 : 1);
 }
 

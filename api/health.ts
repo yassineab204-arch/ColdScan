@@ -1,5 +1,6 @@
 import { ApiRequest, ApiResponse } from './_lib/http.js';
 import { isTrialSecretConfigured } from './_lib/secrets.js';
+import { storeBinding } from './_lib/kv.js';
 import { storeConfigured, TRIAL_HOURS } from './_lib/trial.js';
 
 /**
@@ -17,6 +18,10 @@ export default function handler(_req: ApiRequest, res: ApiResponse) {
       secretConfigured: isTrialSecretConfigured(),
       // Shared datastore holding the server-side trial start times.
       storeConfigured: storeConfigured(),
+      // Which credential pair the Upstash/KV integration provided.
+      storeBinding: storeBinding(),
+      // Which Vercel environment this function is running in.
+      environment: process.env.VERCEL_ENV || 'development',
       // At least one access code is available for the contact-to-continue flow.
       accessCodesConfigured: Boolean(process.env.TRIAL_ACCESS_CODES),
     },
