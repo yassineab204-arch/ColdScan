@@ -41,7 +41,7 @@ export const Navigation: React.FC<NavigationProps> = ({
   if (!visible) return null;
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white/92 backdrop-blur-xl border-t border-ink/[0.07] px-1 sm:px-3 pt-1.5 pb-[calc(0.375rem+env(safe-area-inset-bottom))] shadow-[0_-12px_40px_-20px_rgba(11,61,46,0.25)]">
+    <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-ink/[0.07] px-1 sm:px-3 pt-1.5 pb-[calc(0.375rem+env(safe-area-inset-bottom))] shadow-[0_-12px_40px_-20px_rgba(11,61,46,0.25)]">
       <div className="w-full max-w-[520px] mx-auto flex items-center justify-between gap-0 sm:gap-1 sm:justify-around overflow-x-auto scrollbar-none">
         {tabs.map((tab) => {
           const Icon = tab.icon;

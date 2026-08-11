@@ -94,15 +94,15 @@ export const Header: React.FC<HeaderProps> = ({
             </span>
           </button>
 
-          {/* Desktop nav links */}
-          <nav className="hidden xl:flex items-center gap-1" aria-label="Main navigation">
+          {/* Desktop nav links — always visible as compact pills from md up */}
+          <nav className="hidden md:flex items-center gap-1" aria-label="Main navigation">
             {NAV_LINKS.map((link) => {
               const isActive = activeTab === link.id;
               return (
                 <button
                   key={link.id}
                   onClick={() => go(link.id)}
-                  className={`relative rounded-full px-3 py-1.5 text-[13px] font-semibold transition-colors duration-200 ${
+                  className={`relative whitespace-nowrap rounded-full px-2.5 lg:px-3 py-1.5 text-[12px] lg:text-[13px] font-semibold transition-colors duration-200 ${
                     isActive
                       ? 'text-pine bg-mint'
                       : 'text-ink/60 hover:text-pine hover:bg-ink/[0.04]'
@@ -223,10 +223,10 @@ export const Header: React.FC<HeaderProps> = ({
               <Settings className="h-4 w-4" />
             </button>
 
-            {/* Mobile hamburger */}
+            {/* Mobile hamburger — phones only (md and up use the pills) */}
             <button
               onClick={() => setMenuOpen((v) => !v)}
-              className="xl:hidden flex h-8 w-8 items-center justify-center rounded-lg bg-white/80 ring-1 ring-ink/10 text-pine transition-colors hover:bg-mint"
+              className="md:hidden flex h-8 w-8 items-center justify-center rounded-lg bg-white/80 ring-1 ring-ink/10 text-pine transition-colors hover:bg-mint"
               aria-label={menuOpen ? 'Close menu' : 'Open menu'}
               aria-expanded={menuOpen}
             >
@@ -236,9 +236,9 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
-      {/* Mobile menu panel */}
+      {/* Mobile menu panel — phones only */}
       {menuOpen && (
-        <div className="xl:hidden border-t border-ink/[0.06] bg-white/95 backdrop-blur-xl">
+        <div className="md:hidden border-t border-ink/[0.06] bg-white/95 backdrop-blur-xl">
           <div className="mx-auto max-w-6xl px-3 py-3 space-y-1">
             {NAV_LINKS.map((link) => {
               const isActive = activeTab === link.id;
