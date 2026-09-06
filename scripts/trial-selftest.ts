@@ -21,10 +21,12 @@
 import { kvGet, kvSet, isPersistentStore, storeBinding } from '../api/_lib/kv.js';
 import { startFakeUpstash } from './fake-upstash.js';
 import {
+  isOwnerEmail,
   linkEmail,
   redeemCode,
   requireActiveTrial,
   resolveTrial,
+  toStatus,
   TRIAL_MS,
   type TrialRecord,
 } from '../api/_lib/trial.js';
@@ -113,6 +115,9 @@ async function rewind(accountId: string, ms: number) {
 
 async function runSuite(label: string, tag: string) {
   passTag = tag;
+  // Namespaced per pass (unique per run under --real), so the owner tests below
+  // never collide with keys left by a previous run of the suite.
+  process.env.TRIAL_OWNER_EMAILS = `owner-${passTag}@example.com`;
   console.log(`\n${'='.repeat(60)}\n  ${label}\n  store: ${storeBinding()}  persistent: ${isPersistentStore()}\n${'='.repeat(60)}`);
 
   // 1 — first contact starts the clock and issues an HttpOnly cookie
@@ -255,6 +260,52 @@ async function runSuite(label: string, tag: string) {
   check('no secret in the stored record', !stored.includes(process.env.TRIAL_SECRET!));
 
   check('store reports the expected backend', isPersistentStore() === (storeBinding() !== 'memory'));
+
+  // 12 — owner emails always have full access, no code needed
+  console.log('\n12. Owner email');
+  check('the founder address is recognised as owner', isOwnerEmail('yassineab2014@gmail.com'));
+  check('an unknown address is not owner', !isOwnerEmail(`someone-${passTag}@example.com`));
+
+  const ownerDevice = { ip: '198.51.100.200', ua: 'Mozilla/5.0 (owner test)' };
+  const ownerStart = await resolveTrial(mockReq(ownerDevice), mockRes());
+  await rewind(ownerStart.accountId, TRIAL_MS + 60_000);
+  const ownerExpired = await resolveTrial(mockReq(ownerDevice), mockRes());
+  check('owner account still starts as an ordinary expiring trial', ownerExpired.status.expired);
+
+  const ownerLink = await linkEmail(
+    mockReq(ownerDevice),
+    mockRes(),
+    ownerExpired,
+    `  OWNER-${passTag}@EXAMPLE.COM  `
+  );
+  check('owner email link accepted (case/whitespace normalised)', ownerLink.ok);
+  check(
+    'linking the owner email cancels the expiry',
+    ownerLink.ok && toStatus(ownerLink.record).unlocked && toStatus(ownerLink.record).active
+  );
+
+  const ownerGateRes = mockRes();
+  const ownerGate = await requireActiveTrial(mockReq(ownerDevice), ownerGateRes);
+  check(
+    'premium gate admits the owner with an expired clock',
+    ownerGate !== null && ownerGate.status.unlocked && ownerGate.status.active
+  );
+
+  const ownerPhone = { ip: '192.0.2.222', ua: 'Mozilla/5.0 (owner new phone)' };
+  const freshPhone = await resolveTrial(mockReq(ownerPhone), mockRes());
+  const phoneLink = await linkEmail(mockReq(ownerPhone), mockRes(), freshPhone, `owner-${passTag}@example.com`);
+  check(
+    'full access follows the owner email to a new device',
+    phoneLink.ok && phoneLink.record.accountId === ownerStart.accountId && toStatus(phoneLink.record).unlocked
+  );
+
+  const plebDevice = { ip: '203.0.113.88', ua: 'Mozilla/5.0 (non-owner)' };
+  const pleb = await resolveTrial(mockReq(plebDevice), mockRes());
+  await rewind(pleb.accountId, TRIAL_MS + 60_000);
+  const plebExpired = await resolveTrial(mockReq(plebDevice), mockRes());
+  const plebLink = await linkEmail(mockReq(plebDevice), mockRes(), plebExpired, `someone-${passTag}@example.com`);
+  const plebStatus = plebLink.ok ? toStatus(plebLink.record) : null;
+  check('a non-owner email never unlocks', plebStatus !== null && !plebStatus.unlocked && plebStatus.expired);
 }
 
 async function main() {
