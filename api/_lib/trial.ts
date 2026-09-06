@@ -20,6 +20,9 @@
  *
  * No secret is hardcoded: the signing key comes from `TRIAL_SECRET`, and the
  * access codes are compared as HMACs of values held in `TRIAL_ACCESS_CODES`.
+ *
+ * One deliberate exception to the 48-hour rule: accounts bound to an owner
+ * email always have full access, no code needed — see "Owner accounts" below.
  */
 
 import { kvGet, kvSet, kvSetIfAbsent, kvIncrWithTtl, isPersistentStore } from './kv.js';
@@ -257,20 +260,22 @@ async function ensureRecord(accountId: string): Promise<TrialRecord> {
  * ------------------------------------------------------------------ */
 
 export function toStatus(record: TrialRecord, now = Date.now()): TrialStatus {
+  // An owner email is equivalent to a redeemed unlock code: full access.
+  const unlocked = record.unlocked || isOwnerAccount(record);
   const endsAt = record.startedAt + TRIAL_MS + record.extraMs;
-  const msRemaining = record.unlocked ? Number.POSITIVE_INFINITY : Math.max(0, endsAt - now);
+  const msRemaining = unlocked ? Number.POSITIVE_INFINITY : Math.max(0, endsAt - now);
   const finite = Number.isFinite(msRemaining) ? msRemaining : 0;
 
   return {
     accountId: record.accountId,
     startedAt: new Date(record.startedAt).toISOString(),
     expiresAt: new Date(endsAt).toISOString(),
-    msRemaining: record.unlocked ? 0 : finite,
-    hoursRemaining: record.unlocked ? 0 : Math.ceil(finite / (60 * 60 * 1000)),
-    daysRemaining: record.unlocked ? 0 : Math.ceil(finite / (24 * 60 * 60 * 1000)),
-    active: record.unlocked || finite > 0,
-    expired: !record.unlocked && finite <= 0,
-    unlocked: record.unlocked,
+    msRemaining: unlocked ? 0 : finite,
+    hoursRemaining: unlocked ? 0 : Math.ceil(finite / (60 * 60 * 1000)),
+    daysRemaining: unlocked ? 0 : Math.ceil(finite / (24 * 60 * 60 * 1000)),
+    active: unlocked || finite > 0,
+    expired: !unlocked && finite <= 0,
+    unlocked,
     emailLinked: Boolean(record.emailId),
     tutorialSeen: record.tutorialSeen,
     trialHours: TRIAL_HOURS,
@@ -378,6 +383,48 @@ export async function linkEmail(
   await writeRecord(updated);
   await kvSetIfAbsent(KEY_EMAIL(emailId), session.accountId, RECORD_TTL_SECONDS);
   return { ok: true, record: updated };
+}
+
+/* ------------------------------------------------------------------ *
+ * Owner accounts — permanent full access
+ * ------------------------------------------------------------------ */
+
+/**
+ * Emails with permanent full access: once an account is bound to one of these
+ * addresses its status reports `unlocked` on every device, forever — no access
+ * code, no countdown. Because the access follows the email binding, the owner
+ * still passes through the normal trial UI until the email is linked.
+ *
+ * The built-in address is the app's public business contact (already shown to
+ * every user on the contact screen), so this file exposes nothing new; matches
+ * are computed as derived IDs, the same form stored on the trial record, so
+ * nothing raw is ever written to the datastore either.
+ *
+ * Additional addresses can be granted at deploy time with the server-only
+ * `TRIAL_OWNER_EMAILS` env var (comma-separated) — no code change needed.
+ */
+const OWNER_EMAILS = ['yassineab2014@gmail.com'];
+
+/** Derived ID of every owner email: the built-in list plus TRIAL_OWNER_EMAILS. */
+export function ownerEmailIds(): Set<string> {
+  const ids = new Set<string>();
+  const extras = (process.env.TRIAL_OWNER_EMAILS || '').split(',');
+  for (const candidate of [...OWNER_EMAILS, ...extras]) {
+    const email = normalizeEmail(candidate);
+    if (email) ids.add(derivedId('email', email));
+  }
+  return ids;
+}
+
+/** True when an address carries owner-level access (built-in or env-listed). */
+export function isOwnerEmail(rawEmail: string): boolean {
+  const email = normalizeEmail(rawEmail);
+  return Boolean(email) && ownerEmailIds().has(derivedId('email', email!));
+}
+
+/** True when the account is bound to an owner email -> permanent full access. */
+export function isOwnerAccount(record: TrialRecord): boolean {
+  return Boolean(record.emailId) && ownerEmailIds().has(record.emailId as string);
 }
 
 /* ------------------------------------------------------------------ *

@@ -154,6 +154,11 @@ New users get **48 hours** of full access. The rules:
   show the contact screen — never fake a successful result (see `ScanScreen.tsx`).
 - The identity cookie is `HttpOnly` + signed; the start time is written once with
   `SET NX`; emails and device signals are stored only as HMACs.
+- **Owner emails bypass the trial.** An account bound to the founder's address
+  (`OWNER_EMAILS` in `api/_lib/trial.ts`) or to any address in
+  `TRIAL_OWNER_EMAILS` is always treated as unlocked, on every device — the
+  access follows the email binding, so it starts applying the moment the owner
+  links the email. Keep this list in `trial.ts`/env only; never on the client.
 
 Verify changes with `npx tsx scripts/trial-selftest.ts` — 74 checks that run the
 whole suite twice, once on the in-memory fallback and once over the real Redis
@@ -195,6 +200,7 @@ Set these in `.env` locally and in Vercel -> Settings -> Environment Variables
 | `UPSTASH_REDIS_REST_URL`    | yes      | Stores server-side trial start times      |
 | `UPSTASH_REDIS_REST_TOKEN`  | yes      | ^                                         |
 | `TRIAL_ACCESS_CODES`        | no       | Codes handed out after the trial ends     |
+| `TRIAL_OWNER_EMAILS`        | no       | Extra emails with permanent full access   |
 
 `KV_REST_API_URL` / `KV_REST_API_TOKEN` work in place of the Upstash pair.
 
