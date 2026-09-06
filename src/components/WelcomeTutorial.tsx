@@ -1,13 +1,18 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
-import { Camera, ChefHat, PiggyBank, Sparkles, ArrowRight, ArrowLeft, X, Check } from 'lucide-react';
-import { LanguageType } from '../types';
+import { Camera, ChefHat, PiggyBank, Sparkles, ArrowRight, ArrowLeft, X, Check, UtensilsCrossed } from 'lucide-react';
+import { CuisineType, LanguageType } from '../types';
 import { t } from '../utils/i18n';
 import { TRIAL_HOURS } from '../utils/trial';
+import { CuisinePicker } from './CuisinePicker';
 
 interface WelcomeTutorialProps {
   isOpen: boolean;
   lang: LanguageType;
+  /** Currently selected cuisines (settings.favoriteCuisines). */
+  selectedCuisines?: CuisineType[];
+  /** Toggles a cuisine in the user's persisted settings. */
+  onToggleCuisine?: (cuisine: CuisineType) => void;
   /** Called when the user finishes or skips — the trial clock is already running. */
   onFinish: () => void;
 }
@@ -15,10 +20,13 @@ interface WelcomeTutorialProps {
 const ease = [0.22, 1, 0.36, 1] as const;
 
 const STEPS = [
-  { icon: Camera, titleKey: 'tourStep1Title', bodyKey: 'tourStep1Body' },
-  { icon: ChefHat, titleKey: 'tourStep2Title', bodyKey: 'tourStep2Body' },
-  { icon: PiggyBank, titleKey: 'tourStep3Title', bodyKey: 'tourStep3Body' },
-  { icon: Sparkles, titleKey: 'tourStep4Title', bodyKey: 'tourStep4Body' },
+  { icon: Camera, titleKey: 'tourStep1Title', bodyKey: 'tourStep1Body', id: 'scan' },
+  { icon: ChefHat, titleKey: 'tourStep2Title', bodyKey: 'tourStep2Body', id: 'cook' },
+  // Food-culture personalization: the pills write straight into settings, so
+  // whatever the user picks here is already saved even if they skip ahead.
+  { icon: UtensilsCrossed, titleKey: 'tourStepCuisineTitle', bodyKey: 'tourStepCuisineBody', id: 'cuisines' },
+  { icon: PiggyBank, titleKey: 'tourStep3Title', bodyKey: 'tourStep3Body', id: 'save' },
+  { icon: Sparkles, titleKey: 'tourStep4Title', bodyKey: 'tourStep4Body', id: 'trial' },
 ] as const;
 
 /**
@@ -26,7 +34,13 @@ const STEPS = [
  * the 48-hour free trial. Shown once (persisted via the trial state) and
  * replayable from Settings.
  */
-export const WelcomeTutorial: React.FC<WelcomeTutorialProps> = ({ isOpen, lang, onFinish }) => {
+export const WelcomeTutorial: React.FC<WelcomeTutorialProps> = ({
+  isOpen,
+  lang,
+  selectedCuisines = [],
+  onToggleCuisine,
+  onFinish,
+}) => {
   const reduce = useReducedMotion();
   const [step, setStep] = useState(0);
 
@@ -60,6 +74,7 @@ export const WelcomeTutorial: React.FC<WelcomeTutorialProps> = ({ isOpen, lang, 
 
   const isLast = step === STEPS.length - 1;
   const { icon: Icon, titleKey, bodyKey } = STEPS[step];
+  const isCuisineStep = STEPS[step].id === 'cuisines';
 
   return (
     <div
@@ -115,6 +130,16 @@ export const WelcomeTutorial: React.FC<WelcomeTutorialProps> = ({ isOpen, lang, 
               <p className="mt-3 text-[15px] leading-relaxed text-ink/70 font-medium max-w-xs">
                 {t(bodyKey, lang)}
               </p>
+
+              {isCuisineStep && onToggleCuisine && (
+                <div className="mt-5 w-full max-w-sm">
+                  <CuisinePicker
+                    selected={selectedCuisines}
+                    onToggle={onToggleCuisine}
+                    lang={lang}
+                  />
+                </div>
+              )}
 
               {isLast && (
                 <span className="mt-5 inline-flex items-center gap-2 rounded-full bg-cold/15 px-4 py-2 text-sm font-extrabold text-pine">

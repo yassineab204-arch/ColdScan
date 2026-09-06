@@ -284,6 +284,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   userBudget: 500,
   currency: 'DH',
   dietaryPreferences: ['Low Waste', 'Balanced'],
+  favoriteCuisines: [],
   wasteAlertDays: 3,
   voiceOutputEnabled: true,
   voiceName: 'Zephyr',

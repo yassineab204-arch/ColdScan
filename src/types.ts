@@ -38,6 +38,10 @@ export interface Recipe {
   tags: string[];
   servings?: number;
   usesExpiringItems?: boolean;
+  /** Cuisine the recipe draws from — a CuisineType id (e.g. 'moroccan') or a
+   * free-text cuisine name straight from the Chef AI when it is not one of the
+   * catalog entries. Rendered as a flag pill on the recipe card. */
+  cuisine?: string;
 }
 
 export interface ShoppingItem {
@@ -61,10 +65,23 @@ export interface ScanResult {
 
 export type LanguageType = 'en' | 'fr' | 'ar-MA' | 'es' | 'de' | 'ar' | 'it' | 'pt' | 'ja';
 
+/** Cuisines offered for food-culture personalization (see src/data/cuisines.ts). */
+export type CuisineType =
+  | 'moroccan'
+  | 'italian'
+  | 'french'
+  | 'mexican'
+  | 'japanese'
+  | 'american'
+  | 'indian'
+  | 'turkish';
+
 export interface AppSettings {
   userBudget: number;
   currency: string;
   dietaryPreferences: string[];
+  /** Cuisines the Chef AI should prioritize in generated recipes. */
+  favoriteCuisines: CuisineType[];
   wasteAlertDays: number;
   voiceOutputEnabled: boolean;
   voiceName: string;

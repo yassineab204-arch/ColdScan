@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { TabType, FoodItem, Recipe, ShoppingItem, AppSettings } from './types';
+import { TabType, FoodItem, Recipe, ShoppingItem, AppSettings, CuisineType } from './types';
 import { 
   DEFAULT_SETTINGS 
 } from './data/mockData';
@@ -71,7 +71,9 @@ export default function App() {
 
   const [settings, setSettings] = useState<AppSettings>(() => {
     const saved = localStorage.getItem('coldscan_settings');
-    return saved ? JSON.parse(saved) : DEFAULT_SETTINGS;
+    // Merge over defaults so settings saved before a new key existed (e.g.
+    // favoriteCuisines) pick up their default instead of staying undefined.
+    return saved ? { ...DEFAULT_SETTINGS, ...JSON.parse(saved) } : DEFAULT_SETTINGS;
   });
 
   const [isGeneratingRecipes, setIsGeneratingRecipes] = useState(false);
@@ -191,6 +193,7 @@ export default function App() {
         body: JSON.stringify({
           inventory,
           dietaryPreferences: settings.dietaryPreferences,
+          favoriteCuisines: settings.favoriteCuisines || [],
           language: settings.language,
         }),
       });
@@ -281,6 +284,18 @@ export default function App() {
     } finally {
       setIsGeneratingList(false);
     }
+  };
+
+  // Cuisine personalization: toggled from the onboarding tutorial (which writes
+  // straight into settings) and the Settings screen.
+  const handleToggleCuisine = (cuisine: CuisineType) => {
+    setSettings((prev) => {
+      const current = prev.favoriteCuisines || [];
+      const updated = current.includes(cuisine)
+        ? current.filter((c) => c !== cuisine)
+        : [...current, cuisine];
+      return { ...prev, favoriteCuisines: updated };
+    });
   };
 
   // Settings & Reset
@@ -485,7 +500,13 @@ export default function App() {
       </main>
 
       {/* First-open tutorial */}
-      <WelcomeTutorial isOpen={showTutorial} lang={lang} onFinish={handleFinishTutorial} />
+      <WelcomeTutorial
+        isOpen={showTutorial}
+        lang={lang}
+        selectedCuisines={settings.favoriteCuisines || []}
+        onToggleCuisine={handleToggleCuisine}
+        onFinish={handleFinishTutorial}
+      />
 
       {/* Access code confirmation */}
       {accessNotice && (

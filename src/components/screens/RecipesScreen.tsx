@@ -18,7 +18,8 @@ import {
 import { Recipe, FoodItem, ShoppingItem, AppSettings, LanguageType } from '../../types';
 import { CookingWizardModal } from '../CookingWizardModal';
 import { LiveVoiceModal } from '../LiveVoiceModal';
-import { t, getLocalizedRecipeName, getLocalizedRecipeDescription, getLocalizedRecipeInstructions, getLocalizedFoodItemName } from '../../utils/i18n';
+import { getCuisineMeta } from '../../data/cuisines';
+import { t, getLocalizedRecipeName, getLocalizedRecipeDescription, getLocalizedRecipeInstructions, getLocalizedFoodItemName, getLocalizedCuisineName } from '../../utils/i18n';
 
 interface RecipesScreenProps {
   recipes: Recipe[];
@@ -166,6 +167,11 @@ export const RecipesScreen: React.FC<RecipesScreenProps> = ({
           const isAdded = addedRecipeIds.includes(recipe.id);
           const numStr = (idx + 1).toString().padStart(2, '0');
 
+          // Cuisine tag: flag + localized name when the value maps to the
+          // catalog, otherwise a plain fallback tag with a generic fork icon.
+          const cuisineMeta = getCuisineMeta(recipe.cuisine);
+          const cuisineLabel = recipe.cuisine ? getLocalizedCuisineName(recipe.cuisine, lang) : '';
+
           return (
             <div
               key={recipe.id}
@@ -174,6 +180,14 @@ export const RecipesScreen: React.FC<RecipesScreenProps> = ({
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <div className="flex items-center gap-1.5 flex-wrap">
+                    {cuisineLabel && (
+                      <span className="px-2.5 py-0.5 rounded-md bg-cold/10 text-cold-dark font-black text-[9px] uppercase tracking-widest border border-cold/30 inline-flex items-center gap-1">
+                        <span aria-hidden className="text-[11px] leading-none not-italic">
+                          {cuisineMeta?.flag ?? '🍽️'}
+                        </span>
+                        {cuisineLabel}
+                      </span>
+                    )}
                     {recipe.usesExpiringItems && (
                       <span className="px-2.5 py-0.5 rounded-md bg-amber-100 text-amber-900 font-black text-[9px] uppercase tracking-widest border border-amber-200">
                         {t('wasteReducer', lang)}
