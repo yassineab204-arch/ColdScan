@@ -45,6 +45,7 @@ src/
     screens/                  # One component per tab (Home, Scan, Inventory, Recipes, ShoppingList, CostEstimate, Settings)
     *Modal.tsx                # LiveVoiceModal, RecipeVoiceBotModal, CookingWizardModal, ItemModal, Settings
   data/mockData.ts            # Seed/default inventory, recipes, shopping list, settings
+  data/cuisines.ts            # Cuisine catalog for personalization (keep ids in sync with api/_lib/cuisines.ts)
   hooks/
     useTrial.ts               # Mirrors /api/trial, polls + rechecks on focus and on 402
   utils/
@@ -57,6 +58,7 @@ src/
     speechSync.ts             # TTS playback sync
 api/
   _lib/genai.ts               # getGenAI(), TEXT_MODEL, TTS_MODEL, languageMandate()
+  _lib/cuisines.ts            # Server-side cuisine catalog + payload sanitizer (twin of src/data/cuisines.ts)
   _lib/http.ts                # methodGuard, readBody, fail, ApiRequest/ApiResponse
   _lib/livePersona.ts         # SINGLE SOURCE OF TRUTH for Live voice model/voice/persona
   _lib/kv.ts                  # Redis-over-HTTP client (Upstash / Vercel KV), in-memory dev fallback

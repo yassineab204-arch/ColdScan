@@ -6,13 +6,15 @@ import {
   Sparkles, 
   Bell, 
   Utensils, 
+  UtensilsCrossed, 
   RotateCcw, 
   CheckCircle2,
   ShieldCheck,
   Globe
 } from 'lucide-react';
-import { AppSettings, LanguageType } from '../../types';
+import { AppSettings, CuisineType, LanguageType } from '../../types';
 import { t } from '../../utils/i18n';
+import { CuisinePicker } from '../CuisinePicker';
 
 interface SettingsScreenProps {
   settings: AppSettings;
@@ -104,6 +106,14 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
       ? current.filter((i) => i !== item)
       : [...current, item];
     onUpdateSettings({ dietaryPreferences: updated });
+  };
+
+  const toggleCuisine = (cuisine: CuisineType) => {
+    const current = settings.favoriteCuisines || [];
+    const updated = current.includes(cuisine)
+      ? current.filter((c) => c !== cuisine)
+      : [...current, cuisine];
+    onUpdateSettings({ favoriteCuisines: updated });
   };
 
   const lang = (settings.language || 'en') as LanguageType;
@@ -255,6 +265,28 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               );
             })}
           </div>
+        </div>
+
+        {/* Favorite Cuisines */}
+        <div className="space-y-2 pt-3 border-t border-slate-100">
+          <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-1.5">
+            <UtensilsCrossed className="w-4 h-4 text-cold-dark" />
+            {t('cuisinesLabel', lang)}
+          </label>
+          <p className="text-[11px] text-slate-500 leading-relaxed font-medium">
+            {t('cuisinesHint', lang)}
+          </p>
+          <CuisinePicker
+            selected={settings.favoriteCuisines || []}
+            onToggle={toggleCuisine}
+            lang={lang}
+            className="justify-start"
+          />
+          {(settings.favoriteCuisines || []).length === 0 && (
+            <p className="text-[11px] text-slate-400 font-bold italic">
+              {t('cuisinesEmpty', lang)}
+            </p>
+          )}
         </div>
 
         {/* Contact & Links */}

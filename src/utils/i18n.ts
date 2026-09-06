@@ -1234,6 +1234,13 @@ const EXTRA_UI: Record<string, Record<LanguageType, string>> = {
   tourStep4Body: { en: 'Everything is unlocked for 48 hours — no card needed. The countdown starts now and runs on our servers. When it ends, message us to keep your access.', fr: 'Tout est débloqué pendant 48 heures — sans carte. Le compte à rebours démarre maintenant, côté serveur. À la fin, écrivez-nous pour garder votre accès.', 'ar-MA': 'كلشي محلول 48 ساعة — بلا كارط. العد التنازلي كيبدا دابا فالسيرفور ديالنا. من بعد، تواصل معانا باش تكمل.', ar: 'كل شيء متاح لمدة 48 ساعة — دون بطاقة. يبدأ العد التنازلي الآن على خوادمنا. بعدها راسلنا للاستمرار.', es: 'Todo desbloqueado 48 horas — sin tarjeta. La cuenta atrás empieza ahora en nuestros servidores. Al terminar, escríbenos para seguir.', de: 'Alles 48 Stunden frei — ohne Karte. Der Countdown startet jetzt auf unseren Servern. Danach schreib uns für weiteren Zugang.', it: 'Tutto sbloccato per 48 ore — senza carta. Il conto alla rovescia parte ora sui nostri server. Poi scrivici per continuare.', pt: 'Tudo desbloqueado 48 horas — sem cartão. A contagem começa agora nos nossos servidores. Depois, contacte-nos para continuar.', ja: '48時間すべて利用可能。カード不要。カウントダウンは当社サーバー上で今すぐ開始します。期間後はご連絡ください。' },
   tourReplay: { en: 'Replay the tutorial', fr: 'Revoir le tutoriel', 'ar-MA': 'عاود شوف الشرح', ar: 'إعادة الشرح التعريفي', es: 'Ver el tutorial otra vez', de: 'Tutorial erneut ansehen', it: 'Rivedi il tutorial', pt: 'Rever o tutorial', ja: 'チュートリアルをもう一度見る' },
 
+  /* ---- Cuisine personalization ---- */
+  tourStepCuisineTitle: { en: 'What do you love to eat?', fr: 'Qu’aimez-vous manger ?', 'ar-MA': 'شنو كتحب تاكل؟', ar: 'ماذا تحب أن تأكل؟', es: '¿Qué te encanta comer?', de: 'Was isst du gern?', it: 'Cosa ti piace mangiare?', pt: 'O que gosta de comer?', ja: '好きな食べ物は？' },
+  tourStepCuisineBody: { en: 'Pick your favourite cuisines — your recipes will lean into those flavours, built from what your fridge already holds. You can change them anytime in Settings.', fr: 'Choisissez vos cuisines préférées — vos recettes suivront ces saveurs, à partir de ce que votre frigo contient déjà. Modifiable à tout moment dans les paramètres.', 'ar-MA': 'ختار الطبخات اللي كتعجبك — الوصفات ديالك غادي تمشي مع هاد النكهات، باللي كاين فالتلاجة. تقدر تبدلهم فأي وقت من الإعدادات.', ar: 'اختر مطابخك المفضلة — ستتجه وصفاتك إلى هذه النكهات باستخدام ما في ثلاجتك بالفعل. يمكنك تغييرها في أي وقت من الإعدادات.', es: 'Elige tus cocinas favoritas: tus recetas se inclinarán por esos sabores, con lo que ya tienes en la nevera. Puedes cambiarlas cuando quieras en Ajustes.', de: 'Wähle deine Lieblingsküchen — deine Rezepte folgen diesen Aromen, gekocht mit dem, was im Kühlschrank ist. Jederzeit in den Einstellungen änderbar.', it: 'Scegli le tue cucine preferite: le tue ricette seguiranno quei sapori, usando ciò che è già nel frigo. Puoi cambiarle quando vuoi nelle impostazioni.', pt: 'Escolha as suas cozinhas preferidas — as suas receitas puxarão por esses sabores, com o que já tem no frigorífico. Pode alterá-las quando quiser nas definições.', ja: '好きな料理ジャンルを選びましょう。冷蔵庫にある食材で、その味わいを活かしたレシピを提案します。設定からいつでも変更できます。' },
+  cuisinesLabel: { en: 'Favorite cuisines', fr: 'Cuisines préférées', 'ar-MA': 'الطبخات المفضلة', ar: 'المطابخ المفضلة', es: 'Cocinas favoritas', de: 'Lieblingsküchen', it: 'Cucine preferite', pt: 'Cozinhas preferidas', ja: '好きな料理' },
+  cuisinesHint: { en: 'Your chef prioritizes meals and flavor profiles from these cultures, using what is in your fridge.', fr: 'Votre chef privilégie des plats et des saveurs de ces cultures avec ce que contient votre frigo.', 'ar-MA': 'الشيف ديالك كيفضل الماكلة والنكهات من هاد الثقافات باللي كاين فالتلاجة ديالك.', ar: 'يعطي الشيف الأولوية للأطباق والنكهات من هذه الثقافات باستخدام ما في ثلاجتك.', es: 'Tu chef prioriza comidas y sabores de estas culturas con lo que hay en tu nevera.', de: 'Dein Koch priorisiert Gerichte und Aromen dieser Küchen – mit dem, was im Kühlschrank ist.', it: 'Il tuo chef privilegia piatti e sapori di queste cucine con ciò che hai nel frigo.', pt: 'O seu chef prioriza refeições e sabores destas culturas com o que está no frigorífico.', ja: '冷蔵庫の食材から、これらの食文化の料理や味わいを優先して提案します。' },
+  cuisinesEmpty: { en: 'No cuisines selected — ColdScan will surprise you.', fr: 'Aucune cuisine sélectionnée — ColdScan vous surprendra.', 'ar-MA': 'مازال مختاريتي حتى طبخة — كولد سكان غادي يفاجئك بوحدة بنينة.', ar: 'لم تختر أي مطبخ بعد — سيباغتك كولد سكان بمفاجأة لذيذة.', es: 'Sin cocinas elegidas — ColdScan te sorprenderá.', de: 'Noch keine Küche gewählt — ColdScan überrascht dich.', it: 'Nessuna cucina selezionata — ColdScan ti sorprenderà.', pt: 'Nenhuma cozinha escolhida — o ColdScan vai surpreendê-lo.', ja: 'まだ選択なし — ColdScan がお任せで提案します。' },
+
   /* ---- Trial / access ---- */
   trialBannerTime: { en: 'Free trial — __time__ left', fr: 'Essai gratuit — __time__ restant', 'ar-MA': 'تجربة مجانية — باقي __time__', ar: 'تجربة مجانية — بقي __time__', es: 'Prueba gratis — queda __time__', de: 'Gratis-Test — noch __time__', it: 'Prova gratuita — __time__ rimasti', pt: 'Teste grátis — falta __time__', ja: '無料トライアル — 残り __time__' },
   trialExpiresAt: { en: 'Ends __date__', fr: 'Se termine le __date__', 'ar-MA': 'كيسالي __date__', ar: 'ينتهي في __date__', es: 'Termina el __date__', de: 'Endet am __date__', it: 'Termina il __date__', pt: 'Termina a __date__', ja: '終了: __date__' },
@@ -1761,5 +1768,47 @@ export function getLocalizedLocation(location: string, lang: string = 'en'): str
     },
   };
   return locMap[location]?.[selectedLang] || location;
+}
+
+/** Cuisine display names for the personalization pills and recipe-card tags.
+ * Keys are the catalog ids from src/data/cuisines.ts (which are also the
+ * lowercased English names, so AI-returned values resolve too). */
+const CUISINE_TRANSLATIONS: Record<string, Record<LanguageType, string>> = {
+  moroccan: {
+    en: 'Moroccan', fr: 'Marocaine', 'ar-MA': 'مغربية', ar: 'مغربية', es: 'Marroquí', de: 'Marokkanisch', it: 'Marocchina', pt: 'Marroquina', ja: 'モロッカン',
+  },
+  italian: {
+    en: 'Italian', fr: 'Italienne', 'ar-MA': 'طاليانية', ar: 'إيطالية', es: 'Italiana', de: 'Italienisch', it: 'Italiana', pt: 'Italiana', ja: 'イタリアン',
+  },
+  french: {
+    en: 'French', fr: 'Française', 'ar-MA': 'فرنساوية', ar: 'فرنسية', es: 'Francesa', de: 'Französisch', it: 'Francese', pt: 'Francesa', ja: 'フレンチ',
+  },
+  mexican: {
+    en: 'Mexican', fr: 'Mexicaine', 'ar-MA': 'مكسيكية', ar: 'مكسيكية', es: 'Mexicana', de: 'Mexikanisch', it: 'Messicana', pt: 'Mexicana', ja: 'メキシカン',
+  },
+  japanese: {
+    en: 'Japanese', fr: 'Japonaise', 'ar-MA': 'يابانية', ar: 'يابانية', es: 'Japonesa', de: 'Japanisch', it: 'Giapponese', pt: 'Japonesa', ja: '和食',
+  },
+  american: {
+    en: 'American', fr: 'Américaine', 'ar-MA': 'أمريكية', ar: 'أمريكية', es: 'Americana', de: 'Amerikanisch', it: 'Americana', pt: 'Americana', ja: 'アメリカン',
+  },
+  indian: {
+    en: 'Indian', fr: 'Indienne', 'ar-MA': 'هندية', ar: 'هندية', es: 'India', de: 'Indisch', it: 'Indiana', pt: 'Indiana', ja: 'インド風',
+  },
+  turkish: {
+    en: 'Turkish', fr: 'Turque', 'ar-MA': 'تركية', ar: 'تركية', es: 'Turca', de: 'Türkisch', it: 'Turca', pt: 'Turca', ja: 'トルコ風',
+  },
+};
+
+/**
+ * Localized cuisine label for a catalog id or an English cuisine name.
+ * Unknown values (the Chef AI can occasionally invent one) fall back to the
+ * raw string so a tag never renders empty.
+ */
+export function getLocalizedCuisineName(cuisine: string, lang: string = 'en'): string {
+  if (!cuisine) return cuisine;
+  const selectedLang = (lang || 'en') as LanguageType;
+  const entry = CUISINE_TRANSLATIONS[cuisine.toLowerCase().trim()];
+  return entry?.[selectedLang] || entry?.en || cuisine;
 }
 
