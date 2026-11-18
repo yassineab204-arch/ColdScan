@@ -62,6 +62,21 @@ serverless instance falls back to its own in-memory copy, so the clock restarts
 unpredictably. Check both a production URL and a preview URL — they are
 configured independently.
 
+### Verifying the Content Security Policy
+
+Vercel serves the `Content-Security-Policy` in `vercel.json` on every route.
+Scripts, including Web Analytics, must come from ColdScan itself. Inline style
+attributes are allowed for map markers and animations; inline scripts are not.
+The policy lists browser resources only: server-side calls to Redis, Gemini REST,
+Nominatim and Overpass do not need browser permissions.
+
+Before promoting a preview, inspect the document's **Response Headers** in the
+browser's Network panel. Try a photo scan, the store map, speech playback and a
+live voice session; check the Console for CSP violations. To observe a proposed
+policy change without blocking resources, use `Content-Security-Policy-Report-Only`
+on a test preview, then restore and verify the enforcing header before promotion.
+The local Vite development server does not apply Vercel's headers.
+
 ## Local development
 
 ```bash
