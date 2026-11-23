@@ -16,7 +16,12 @@
  *       - a device fingerprint (hashed IP + User-Agent) is remembered, so a
  *         cleared/incognito browser on the same device is re-linked to the
  *         SAME account instead of getting a fresh trial;
- *       - binding an email makes the account portable and permanent.
+ *       - a *verified* email binding makes the account portable and permanent.
+ *
+ * Email bindings are only ever created by `linkVerifiedEmail`, which the auth
+ * endpoint calls after Supabase has confirmed a one-time code. Typing an address
+ * grants nothing: unverified bindings are treated as absent, and they are
+ * revoked as soon as the real owner proves control.
  *
  * No secret is hardcoded: the signing key comes from `TRIAL_SECRET`, and the
  * access codes are compared as HMACs of values held in `TRIAL_ACCESS_CODES`.
@@ -27,7 +32,9 @@
 
 import { kvGet, kvSet, kvSetIfAbsent, kvIncrWithTtl, isPersistentStore } from './kv.js';
 import { derivedId, hmac, randomId, safeEqual } from './secrets.js';
+import { isSecureRequest, parseCookies, setCookie } from './http.js';
 import type { ApiRequest, ApiResponse } from './http.js';
+import { isSupabaseUserId } from './authCookie.js';
 
 /* ------------------------------------------------------------------ *
  * Constants
@@ -62,6 +69,15 @@ export interface TrialRecord {
   unlocked: boolean;
   /** HMAC of the bound email, or null. The raw email is never stored. */
   emailId: string | null;
+  /**
+   * Server timestamp (ms) when the email was proven with a Supabase OTP, or
+   * null. A binding without this is untrusted: it was created by the old,
+   * unauthenticated "type an email" flow, so it neither unlocks owner access
+   * nor identifies the account.
+   */
+  emailVerifiedAt: number | null;
+  /** Supabase auth user id that last verified this account, or null. */
+  authUserId: string | null;
   /** First-run tutorial completed. Kept here so it follows the account. */
   tutorialSeen: boolean;
   /** Bookkeeping. */
@@ -84,7 +100,9 @@ export interface TrialStatus {
   /** True once the 48 hours are up and no code has been redeemed. */
   expired: boolean;
   unlocked: boolean;
+  /** True only when an email was proven with an OTP, not merely typed. */
   emailLinked: boolean;
+  emailVerified: boolean;
   tutorialSeen: boolean;
   trialHours: number;
   /** Server time, so the client can count down without trusting its own clock. */
@@ -94,24 +112,6 @@ export interface TrialStatus {
 /* ------------------------------------------------------------------ *
  * Cookies
  * ------------------------------------------------------------------ */
-
-function parseCookies(req: ApiRequest): Record<string, string> {
-  if (req.cookies && typeof req.cookies === 'object') return req.cookies;
-
-  const header = req.headers?.cookie;
-  const raw = Array.isArray(header) ? header.join('; ') : header;
-  if (!raw) return {};
-
-  const out: Record<string, string> = {};
-  for (const part of raw.split(';')) {
-    const idx = part.indexOf('=');
-    if (idx < 0) continue;
-    const name = part.slice(0, idx).trim();
-    const value = part.slice(idx + 1).trim();
-    if (name) out[name] = decodeURIComponent(value);
-  }
-  return out;
-}
 
 /** Cookie value is `<accountId>.<hmac>` so a forged id is rejected. */
 function signAccountId(accountId: string): string {
@@ -134,13 +134,6 @@ function verifyAccountCookie(value: string | undefined): string | null {
   }
 }
 
-function isSecureRequest(req: ApiRequest): boolean {
-  if (process.env.VERCEL_ENV) return true;
-  const proto = req.headers?.['x-forwarded-proto'];
-  const value = Array.isArray(proto) ? proto[0] : proto;
-  return value === 'https';
-}
-
 function setSessionCookie(req: ApiRequest, res: ApiResponse, accountId: string): void {
   const parts = [
     `${COOKIE_NAME}=${encodeURIComponent(signAccountId(accountId))}`,
@@ -152,7 +145,8 @@ function setSessionCookie(req: ApiRequest, res: ApiResponse, accountId: string):
     `Max-Age=${COOKIE_MAX_AGE_SECONDS}`,
   ];
   if (isSecureRequest(req)) parts.push('Secure');
-  res.setHeader('Set-Cookie', parts.join('; '));
+  // Appends, so the auth cookie set in the same response survives.
+  setCookie(res, parts.join('; '));
 }
 
 /* ------------------------------------------------------------------ *
@@ -179,7 +173,16 @@ function clientIp(req: ApiRequest): string {
  * with the same browser build can share an account. That is deliberately the
  * conservative direction (it can deny a second free trial, never extend one).
  */
-function deviceFingerprint(req: ApiRequest): string {
+/**
+ * Stable, salted identifier for the caller's IP. Used for auth rate limits:
+ * unlike the device fingerprint it cannot be varied by changing the User-Agent
+ * header, which is exactly what an OTP-spam script would try.
+ */
+export function clientIpId(req: ApiRequest): string {
+  return derivedId('ip', clientIp(req));
+}
+
+export function deviceFingerprint(req: ApiRequest): string {
   const ua = req.headers?.['user-agent'];
   const uaValue = Array.isArray(ua) ? ua[0] : ua || 'unknown';
   const lang = req.headers?.['accept-language'];
@@ -202,6 +205,14 @@ function sanitizeRecord(raw: string | null, accountId: string): TrialRecord | nu
       extraMs: typeof parsed.extraMs === 'number' && parsed.extraMs > 0 ? parsed.extraMs : 0,
       unlocked: parsed.unlocked === true,
       emailId: typeof parsed.emailId === 'string' ? parsed.emailId : null,
+      emailVerifiedAt:
+        typeof parsed.emailVerifiedAt === 'number' && Number.isFinite(parsed.emailVerifiedAt)
+          ? parsed.emailVerifiedAt
+          : null,
+      authUserId:
+        typeof parsed.authUserId === 'string' && isSupabaseUserId(parsed.authUserId)
+          ? parsed.authUserId
+          : null,
       tutorialSeen: parsed.tutorialSeen === true,
       createdAt: typeof parsed.createdAt === 'number' ? parsed.createdAt : parsed.startedAt,
       updatedAt: typeof parsed.updatedAt === 'number' ? parsed.updatedAt : parsed.startedAt,
@@ -239,6 +250,8 @@ async function ensureRecord(accountId: string): Promise<TrialRecord> {
     extraMs: 0,
     unlocked: false,
     emailId: null,
+    emailVerifiedAt: null,
+    authUserId: null,
     tutorialSeen: false,
     createdAt: now,
     updatedAt: now,
@@ -260,8 +273,10 @@ async function ensureRecord(accountId: string): Promise<TrialRecord> {
  * ------------------------------------------------------------------ */
 
 export function toStatus(record: TrialRecord, now = Date.now()): TrialStatus {
-  // An owner email is equivalent to a redeemed unlock code: full access.
+  // An owner email is equivalent to a redeemed unlock code: full access — but
+  // only once that address has been proven with an OTP (see isOwnerAccount).
   const unlocked = record.unlocked || isOwnerAccount(record);
+  const emailVerified = Boolean(record.emailId && record.emailVerifiedAt);
   const endsAt = record.startedAt + TRIAL_MS + record.extraMs;
   const msRemaining = unlocked ? Number.POSITIVE_INFINITY : Math.max(0, endsAt - now);
   const finite = Number.isFinite(msRemaining) ? msRemaining : 0;
@@ -276,7 +291,8 @@ export function toStatus(record: TrialRecord, now = Date.now()): TrialStatus {
     active: unlocked || finite > 0,
     expired: !unlocked && finite <= 0,
     unlocked,
-    emailLinked: Boolean(record.emailId),
+    emailLinked: emailVerified,
+    emailVerified,
     tutorialSeen: record.tutorialSeen,
     trialHours: TRIAL_HOURS,
     serverTime: new Date(now).toISOString(),
@@ -345,44 +361,101 @@ export function normalizeEmail(email: string): string | null {
 
 // Note: every variant lists every property (the absent ones as `?: undefined`)
 // so the union narrows correctly under this project's non-strict tsconfig.
-export type LinkEmailResult =
-  | { ok: true; record: TrialRecord; reason?: undefined }
-  | { ok: false; record?: undefined; reason: 'invalid_email' };
+export type LinkVerifiedEmailResult =
+  | { ok: true; record: TrialRecord; adopted: boolean; reason?: undefined }
+  | {
+      ok: false;
+      record?: undefined;
+      adopted?: undefined;
+      reason: 'invalid_email' | 'invalid_identity';
+    };
 
 /**
- * Binds the session to an email so the trial follows the person, not the
- * browser. If that email already has a trial, the session is re-pointed at the
- * ORIGINAL account — so signing in with the same email after clearing
- * everything resumes the old clock instead of starting a new one.
+ * Binds the session to an email AFTER Supabase has verified a one-time code.
+ *
+ * This is the only function that may create a trusted email binding. It is
+ * called from `/api/auth` with the user id Supabase returned; the browser can
+ * never reach it directly, so typing an address still grants nothing.
+ *
+ * Rules that keep the trial intact:
+ *   - Never touches `startedAt`, `extraMs` or `unlocked`.
+ *   - If the address already belongs to an account that was itself verified,
+ *     adopt that ORIGINAL account so a new device resumes the old clock.
+ *   - If the existing binding was never verified (the old, unauthenticated
+ *     flow could create those), REVOKE it instead of inheriting its account.
+ *     This is what stops email squatting: an attacker who typed the founder's
+ *     address before verification existed does not keep owner access, and the
+ *     verified browser is not silently pointed at the attacker's account.
+ *     The earlier start time is carried over so the repair cannot reset a
+ *     legitimate trial.
  *
  * The raw email is never stored: only `HMAC(TRIAL_SECRET, email)`.
  */
-export async function linkEmail(
+export async function linkVerifiedEmail(
   req: ApiRequest,
   res: ApiResponse,
   session: TrialSession,
-  rawEmail: string
-): Promise<LinkEmailResult> {
+  rawEmail: string,
+  authUserId: string
+): Promise<LinkVerifiedEmailResult> {
   const email = normalizeEmail(rawEmail);
   if (!email) return { ok: false, reason: 'invalid_email' };
+  if (!isSupabaseUserId(authUserId)) return { ok: false, reason: 'invalid_identity' };
 
   const emailId = derivedId('email', email);
+  const now = Date.now();
   const existingAccountId = await kvGet(KEY_EMAIL(emailId));
+  /** The account that proves control keeps the OLDEST clock it can be shown. */
+  let startedAt = session.record.startedAt;
 
   if (existingAccountId && existingAccountId !== session.accountId) {
     const existing = await readRecord(existingAccountId);
-    if (existing) {
-      // Adopt the older account: its start time is the one that counts.
-      setSessionCookie(req, res, existing.accountId);
-      await kvSetIfAbsent(KEY_DEVICE(deviceFingerprint(req)), existing.accountId, RECORD_TTL_SECONDS);
-      return { ok: true, record: existing };
+
+    // A verified binding is the real owner returning: adopt the older account
+    // so its start time (and any owner entitlement) is the one that counts.
+    if (existing && existing.emailId === emailId && existing.emailVerifiedAt) {
+      const adopted: TrialRecord = { ...existing, authUserId };
+      await writeRecord(adopted);
+      setSessionCookie(req, res, adopted.accountId);
+      // This device now belongs to the adopted account, so a cleared cookie
+      // re-links to it rather than to the throwaway account created just now.
+      await kvSet(KEY_DEVICE(deviceFingerprint(req)), adopted.accountId, RECORD_TTL_SECONDS);
+      return { ok: true, record: adopted, adopted: true };
+    }
+
+    // An unverified claim cannot be inherited: it could belong to a squatter,
+    // and adopting its account would hand that browser any verified owner
+    // entitlement. Revoke it, then bind the address to the account that just
+    // proved control.
+    //
+    // Its START TIME, however, is still evidence: carrying the earlier clock
+    // over prevents this repair from becoming a one-time trial reset for people
+    // who used the old "type an email" flow. Grants (`extraMs`, `unlocked`) are
+    // NOT inherited — only the fact that the clock began earlier.
+    if (existing && !existing.emailVerifiedAt) {
+      if (Number.isFinite(existing.startedAt)) {
+        startedAt = Math.min(startedAt, existing.startedAt);
+      }
+      await writeRecord({
+        ...existing,
+        emailId: null,
+        emailVerifiedAt: null,
+        authUserId: null,
+      });
     }
   }
 
-  const updated: TrialRecord = { ...session.record, emailId };
+  const updated: TrialRecord = {
+    ...session.record,
+    startedAt,
+    emailId,
+    emailVerifiedAt: now,
+    authUserId,
+  };
   await writeRecord(updated);
-  await kvSetIfAbsent(KEY_EMAIL(emailId), session.accountId, RECORD_TTL_SECONDS);
-  return { ok: true, record: updated };
+  // Overwrite (not NX): a verified claim always wins over an unverified one.
+  await kvSet(KEY_EMAIL(emailId), session.accountId, RECORD_TTL_SECONDS);
+  return { ok: true, record: updated, adopted: false };
 }
 
 /* ------------------------------------------------------------------ *
@@ -391,9 +464,12 @@ export async function linkEmail(
 
 /**
  * Emails with permanent full access: once an account is bound to one of these
- * addresses its status reports `unlocked` on every device, forever — no access
- * code, no countdown. Because the access follows the email binding, the owner
- * still passes through the normal trial UI until the email is linked.
+ * addresses AND that binding has been verified with an OTP, its status reports
+ * `unlocked` on every device, forever — no access code, no countdown. The owner
+ * still passes through the normal trial UI until the email is verified.
+ *
+ * The verification requirement is not cosmetic: without it, anyone who knew
+ * the public business address could type it and grant themselves full access.
  *
  * The built-in address is the app's public business contact (already shown to
  * every user on the contact screen), so this file exposes nothing new; matches
@@ -422,9 +498,16 @@ export function isOwnerEmail(rawEmail: string): boolean {
   return Boolean(email) && ownerEmailIds().has(derivedId('email', email!));
 }
 
-/** True when the account is bound to an owner email -> permanent full access. */
+/**
+ * True when the account is bound to a VERIFIED owner email -> permanent access.
+ * An unverified legacy binding never counts.
+ */
 export function isOwnerAccount(record: TrialRecord): boolean {
-  return Boolean(record.emailId) && ownerEmailIds().has(record.emailId as string);
+  return (
+    Boolean(record.emailId) &&
+    Boolean(record.emailVerifiedAt) &&
+    ownerEmailIds().has(record.emailId as string)
+  );
 }
 
 /* ------------------------------------------------------------------ *
@@ -537,14 +620,16 @@ export async function markTutorialSeen(session: TrialSession): Promise<TrialReco
 export async function rateLimit(
   bucket: string,
   limit: number,
-  windowSeconds: number
-): Promise<{ allowed: boolean; count: number }> {
+  windowSeconds: number,
+  options: { failClosed?: boolean } = {}
+): Promise<{ allowed: boolean; count: number; degraded?: boolean }> {
   try {
     const count = await kvIncrWithTtl(KEY_RATE(bucket), windowSeconds);
     return { allowed: count <= limit, count };
   } catch {
-    // Never let a datastore hiccup lock a paying user out of a code redemption.
-    return { allowed: true, count: 0 };
+    // Trial code redemption stays available during a datastore hiccup. Auth is
+    // different: if the limiter cannot be consulted, sending mail is refused.
+    return { allowed: options.failClosed !== true, count: 0, degraded: true };
   }
 }
 

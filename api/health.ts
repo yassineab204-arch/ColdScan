@@ -2,6 +2,7 @@ import { ApiRequest, ApiResponse } from './_lib/http.js';
 import { isTrialSecretConfigured } from './_lib/secrets.js';
 import { storeBinding } from './_lib/kv.js';
 import { storeConfigured, TRIAL_HOURS } from './_lib/trial.js';
+import { supabaseConfigured } from './_lib/supabase.js';
 
 /**
  * Reports whether each required piece of configuration is present. It only ever
@@ -24,6 +25,12 @@ export default function handler(_req: ApiRequest, res: ApiResponse) {
       environment: process.env.VERCEL_ENV || 'development',
       // At least one access code is available for the contact-to-continue flow.
       accessCodesConfigured: Boolean(process.env.TRIAL_ACCESS_CODES),
+    },
+    // Email OTP login. Booleans only — never the URL, key or project ref.
+    auth: {
+      provider: 'supabase',
+      supabaseConfigured: supabaseConfigured(),
+      emailOtpEnabled: supabaseConfigured(),
     },
     timestamp: new Date().toISOString(),
   });

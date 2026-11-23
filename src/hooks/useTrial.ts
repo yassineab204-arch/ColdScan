@@ -3,7 +3,6 @@ import {
   clockSkew,
   fetchTrialStatus,
   formatRemaining,
-  linkTrialEmail,
   markTutorialSeen,
   redeemAccessCode,
   remainingMs,
@@ -33,7 +32,6 @@ export interface UseTrial {
   /** Applies a status the server returned from a gated API call (e.g. a 402). */
   applyStatus: (status: TrialStatus) => void;
   redeemCode: (code: string) => Promise<{ ok: boolean; granted?: 'unlock' | 'extend'; hours?: number }>;
-  linkEmail: (email: string) => Promise<{ ok: boolean; error?: string }>;
   completeTutorial: () => void;
 }
 
@@ -115,15 +113,6 @@ export function useTrial(): UseTrial {
     [applyStatus]
   );
 
-  const linkEmail = useCallback(
-    async (email: string) => {
-      const result = await linkTrialEmail(email);
-      if (result.ok && result.trial) applyStatus(result.trial);
-      return { ok: result.ok, error: result.error };
-    },
-    [applyStatus]
-  );
-
   const completeTutorial = useCallback(() => {
     setStatus((prev) => ({ ...prev, tutorialSeen: true }));
     void markTutorialSeen();
@@ -139,7 +128,6 @@ export function useTrial(): UseTrial {
     refresh,
     applyStatus,
     redeemCode,
-    linkEmail,
     completeTutorial,
   };
 }

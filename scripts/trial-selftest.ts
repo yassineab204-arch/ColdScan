@@ -21,8 +21,9 @@
 import { kvGet, kvSet, isPersistentStore, storeBinding } from '../api/_lib/kv.js';
 import { startFakeUpstash } from './fake-upstash.js';
 import {
+  isOwnerAccount,
   isOwnerEmail,
-  linkEmail,
+  linkVerifiedEmail,
   redeemCode,
   requireActiveTrial,
   resolveTrial,
@@ -30,10 +31,24 @@ import {
   TRIAL_MS,
   type TrialRecord,
 } from '../api/_lib/trial.js';
+import { derivedId } from '../api/_lib/secrets.js';
+import {
+  AUTH_COOKIE_NAME,
+  signAuthCookie,
+  verifyAuthCookieValue,
+} from '../api/_lib/authCookie.js';
+import {
+  requestEmailOtp,
+  supabaseConfigured,
+  verifyEmailOtp,
+} from '../api/_lib/supabase.js';
 import type { ApiRequest, ApiResponse } from '../api/_lib/http.js';
 
 process.env.TRIAL_SECRET ||= 'selftest-secret-0123456789abcdefghijklmno';
 process.env.TRIAL_ACCESS_CODES ||= 'TEST-UNLOCK:unlock,TEST-EXTEND:extend:24';
+
+/** Stable fake Supabase user id used by the verification tests. */
+const AUTH_USER = '11111111-1111-4111-8111-111111111111';
 
 /* ---------------- test doubles ---------------- */
 
@@ -219,7 +234,13 @@ async function runSuite(label: string, tag: string) {
     mockReq({ ip: '192.0.2.55', ua: 'Mozilla/5.0 (email test)' }),
     mockRes()
   );
-  await linkEmail(mockReq({ ip: '192.0.2.55' }), mockRes(), fresh, `user-${passTag}@example.com `);
+  await linkVerifiedEmail(
+    mockReq({ ip: '192.0.2.55' }),
+    mockRes(),
+    fresh,
+    `user-${passTag}@example.com `,
+    AUTH_USER
+  );
   await rewind(fresh.accountId, TRIAL_MS / 2);
 
   // Brand new browser AND new device: normally a fresh trial...
@@ -232,11 +253,12 @@ async function runSuite(label: string, tag: string) {
 
   // ...until the same email is supplied, which re-adopts the original account.
   const relinkRes = mockRes();
-  const relinked = await linkEmail(
+  const relinked = await linkVerifiedEmail(
     mockReq({ ip: '192.0.2.99', ua: 'Mozilla/5.0 (brand new phone)' }),
     relinkRes,
     stranger,
-    `USER-${passTag}@EXAMPLE.COM`
+    `USER-${passTag}@EXAMPLE.COM`,
+    AUTH_USER
   );
   check('email lookup is normalized', relinked.ok);
   check(
@@ -248,9 +270,21 @@ async function runSuite(label: string, tag: string) {
     relinked.ok && Math.round((Date.now() - relinked.record.startedAt) / 3_600_000) === 24
   );
   check('session cookie re-pointed to the original account', cookieFrom(relinkRes).includes(fresh.accountId));
+  check(
+    're-adoption is marked as verified',
+    relinked.ok && relinked.adopted && Boolean(relinked.record.emailVerifiedAt)
+  );
 
-  const invalid = await linkEmail(mockReq(), mockRes(), fresh, 'not-an-email');
+  const invalid = await linkVerifiedEmail(mockReq(), mockRes(), fresh, 'not-an-email', AUTH_USER);
+  const invalidIdentity = await linkVerifiedEmail(
+    mockReq(),
+    mockRes(),
+    fresh,
+    `user-${passTag}@example.com`,
+    'not-a-uuid'
+  );
   check('invalid email rejected', !invalid.ok);
+  check('invalid auth identity rejected', !invalidIdentity.ok);
 
   // 11 — no raw personal data is stored
   console.log('\n11. Data hygiene');
@@ -261,8 +295,8 @@ async function runSuite(label: string, tag: string) {
 
   check('store reports the expected backend', isPersistentStore() === (storeBinding() !== 'memory'));
 
-  // 12 — owner emails always have full access, no code needed
-  console.log('\n12. Owner email');
+  // 12 — owner emails have full access, but ONLY after OTP verification
+  console.log('\n12. Owner email (verified only)');
   check('the founder address is recognised as owner', isOwnerEmail('yassineab2014@gmail.com'));
   check('an unknown address is not owner', !isOwnerEmail(`someone-${passTag}@example.com`));
 
@@ -272,15 +306,37 @@ async function runSuite(label: string, tag: string) {
   const ownerExpired = await resolveTrial(mockReq(ownerDevice), mockRes());
   check('owner account still starts as an ordinary expiring trial', ownerExpired.status.expired);
 
-  const ownerLink = await linkEmail(
+  // A binding created by the old, unauthenticated flow must unlock NOTHING.
+  const ownerEmailId = derivedId('email', `owner-${passTag}@example.com`);
+  const legacyDevice = { ip: '198.51.100.201', ua: 'Mozilla/5.0 (legacy owner binding)' };
+  const legacy = await resolveTrial(mockReq(legacyDevice), mockRes());
+  await rewind(legacy.accountId, TRIAL_MS + 60_000);
+  const legacyKey = `coldscan:trial:account:${legacy.accountId}`;
+  const legacyRaw = JSON.parse((await kvGet(legacyKey)) as string) as TrialRecord;
+  await kvSet(
+    legacyKey,
+    JSON.stringify({ ...legacyRaw, emailId: ownerEmailId, emailVerifiedAt: null })
+  );
+  const legacyAfter = await resolveTrial(mockReq(legacyDevice), mockRes());
+  check(
+    'an unverified owner-email binding does not unlock access',
+    legacyAfter.status.expired && !legacyAfter.status.unlocked
+  );
+  check(
+    'an unverified binding is not reported as linked or verified',
+    !legacyAfter.status.emailLinked && !legacyAfter.status.emailVerified
+  );
+
+  const ownerLink = await linkVerifiedEmail(
     mockReq(ownerDevice),
     mockRes(),
     ownerExpired,
-    `  OWNER-${passTag}@EXAMPLE.COM  `
+    `  OWNER-${passTag}@EXAMPLE.COM  `,
+    AUTH_USER
   );
   check('owner email link accepted (case/whitespace normalised)', ownerLink.ok);
   check(
-    'linking the owner email cancels the expiry',
+    'verifying the owner email cancels the expiry',
     ownerLink.ok && toStatus(ownerLink.record).unlocked && toStatus(ownerLink.record).active
   );
 
@@ -293,19 +349,201 @@ async function runSuite(label: string, tag: string) {
 
   const ownerPhone = { ip: '192.0.2.222', ua: 'Mozilla/5.0 (owner new phone)' };
   const freshPhone = await resolveTrial(mockReq(ownerPhone), mockRes());
-  const phoneLink = await linkEmail(mockReq(ownerPhone), mockRes(), freshPhone, `owner-${passTag}@example.com`);
+  const phoneLink = await linkVerifiedEmail(
+    mockReq(ownerPhone),
+    mockRes(),
+    freshPhone,
+    `owner-${passTag}@example.com`,
+    AUTH_USER
+  );
   check(
     'full access follows the owner email to a new device',
     phoneLink.ok && phoneLink.record.accountId === ownerStart.accountId && toStatus(phoneLink.record).unlocked
+  );
+
+  // 12b — an unverified claim cannot be inherited (email squatting)
+  console.log('\n12b. Email squatting');
+  const squatEmail = `squat-${passTag}@example.com`;
+  const squatEmailId = derivedId('email', squatEmail);
+
+  const attackerDevice = { ip: '198.51.100.77', ua: 'Mozilla/5.0 (squatter)' };
+  const attacker = await resolveTrial(mockReq(attackerDevice), mockRes());
+  const attackerKey = `coldscan:trial:account:${attacker.accountId}`;
+  const attackerRaw = JSON.parse((await kvGet(attackerKey)) as string) as TrialRecord;
+  await kvSet(
+    attackerKey,
+    JSON.stringify({ ...attackerRaw, emailId: squatEmailId, emailVerifiedAt: null })
+  );
+  await kvSet(`coldscan:trial:email:${squatEmailId}`, attacker.accountId);
+
+  // The squatter's account has already burned half its clock.
+  await rewind(attacker.accountId, TRIAL_MS / 2);
+  const attackerRewound = JSON.parse((await kvGet(attackerKey)) as string) as TrialRecord;
+
+  const victimDevice = { ip: '198.51.100.78', ua: 'Mozilla/5.0 (real address owner)' };
+  const victim = await resolveTrial(mockReq(victimDevice), mockRes());
+  const victimLink = await linkVerifiedEmail(
+    mockReq(victimDevice),
+    mockRes(),
+    victim,
+    squatEmail,
+    AUTH_USER
+  );
+  check(
+    'verification binds the real owner instead of inheriting the claim',
+    victimLink.ok && victimLink.record.accountId === victim.accountId && !victimLink.adopted
+  );
+  check(
+    'verification carries over the older clock (no trial reset)',
+    victimLink.ok && victimLink.record.startedAt === attackerRewound.startedAt
+  );
+  check(
+    'the verified account keeps roughly the remaining trial',
+    victimLink.ok && Math.round((Date.now() - victimLink.record.startedAt) / 3_600_000) === 24
+  );
+  check(
+    'verification marks the binding as verified',
+    victimLink.ok && Boolean(victimLink.record.emailVerifiedAt)
+  );
+
+  const attackerAfter = JSON.parse((await kvGet(attackerKey)) as string) as TrialRecord;
+  check('the squatter loses the email claim', attackerAfter.emailId === null);
+  check('the squatter is no longer an owner account', !isOwnerAccount(attackerAfter));
+
+  const later = await resolveTrial(
+    mockReq({ ip: '198.51.100.79', ua: 'Mozilla/5.0 (third device)' }),
+    mockRes()
+  );
+  const laterLink = await linkVerifiedEmail(
+    mockReq({ ip: '198.51.100.79', ua: 'Mozilla/5.0 (third device)' }),
+    mockRes(),
+    later,
+    squatEmail,
+    AUTH_USER
+  );
+  check(
+    'a later sign-in adopts the verified account and its clock',
+    laterLink.ok && laterLink.adopted && laterLink.record.accountId === victim.accountId
   );
 
   const plebDevice = { ip: '203.0.113.88', ua: 'Mozilla/5.0 (non-owner)' };
   const pleb = await resolveTrial(mockReq(plebDevice), mockRes());
   await rewind(pleb.accountId, TRIAL_MS + 60_000);
   const plebExpired = await resolveTrial(mockReq(plebDevice), mockRes());
-  const plebLink = await linkEmail(mockReq(plebDevice), mockRes(), plebExpired, `someone-${passTag}@example.com`);
+  const plebLink = await linkVerifiedEmail(
+    mockReq(plebDevice),
+    mockRes(),
+    plebExpired,
+    `someone-${passTag}@example.com`,
+    AUTH_USER
+  );
   const plebStatus = plebLink.ok ? toStatus(plebLink.record) : null;
   check('a non-owner email never unlocks', plebStatus !== null && !plebStatus.unlocked && plebStatus.expired);
+
+  // 13 — the email session cookie is signed, scoped and tamper-proof
+  console.log('\n13. Email session cookie');
+  const signed = signAuthCookie(s1.accountId, AUTH_USER);
+  const parsed = verifyAuthCookieValue(signed);
+  check(
+    'signed session round-trips',
+    parsed?.accountId === s1.accountId && parsed?.userId === AUTH_USER
+  );
+
+  const parts = signed.split('.');
+  const lastChar = parts[4]!.slice(-1);
+  const tamperedSig = [...parts.slice(0, 4), parts[4]!.slice(0, -1) + (lastChar === 'A' ? 'B' : 'A')].join('.');
+  check('tampered signature rejected', verifyAuthCookieValue(tamperedSig) === null);
+
+  const tamperedAccount = [...parts];
+  tamperedAccount[1] = 'attacker-account-01'; // valid shape, wrong signature
+  check('tampered account id rejected', verifyAuthCookieValue(tamperedAccount.join('.')) === null);
+
+  const expiredCookie = signAuthCookie(s1.accountId, AUTH_USER, Date.now() - 31 * 24 * 60 * 60 * 1000);
+  check('expired session rejected', verifyAuthCookieValue(expiredCookie) === null);
+  check(
+    'invalid user id is never accepted',
+    verifyAuthCookieValue(signAuthCookie(s1.accountId, 'not-a-uuid')) === null
+  );
+  check('session cookie name is stable', AUTH_COOKIE_NAME === 'coldscan_auth');
+
+  // 14 — Supabase REST client (mocked; no email is ever sent)
+  console.log('\n14. Supabase OTP client');
+  const savedUrl = process.env.SUPABASE_URL;
+  const savedKey = process.env.SUPABASE_ANON_KEY;
+  const savedPublishable = process.env.SUPABASE_PUBLISHABLE_KEY;
+  delete process.env.SUPABASE_URL;
+  delete process.env.SUPABASE_ANON_KEY;
+  delete process.env.SUPABASE_PUBLISHABLE_KEY;
+
+  check('missing configuration is reported', !supabaseConfigured());
+  const unconfigured = await requestEmailOtp('person@example.com');
+  check('OTP request refuses without configuration', !unconfigured.ok && unconfigured.reason === 'not_configured');
+
+  process.env.SUPABASE_URL = 'https://example.supabase.co';
+  process.env.SUPABASE_ANON_KEY = 'test-publishable-key';
+  check('configuration is detected', supabaseConfigured());
+
+  const realFetch = globalThis.fetch;
+  const calls: { url: string; init: any }[] = [];
+  let responses: { status: number; body: any }[] = [];
+
+  globalThis.fetch = (async (input: any, init: any) => {
+    calls.push({ url: String(input), init });
+    const next = responses.shift() ?? { status: 500, body: {} };
+    return new Response(JSON.stringify(next.body), {
+      status: next.status,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }) as typeof fetch;
+
+  try {
+    responses = [{ status: 200, body: {} }];
+    const sent = await requestEmailOtp('Person@Example.com');
+    const sentBody = JSON.parse(calls[0]!.init.body);
+    check('OTP request succeeds', sent.ok);
+    check('OTP call targets /auth/v1/otp', calls[0]!.url.endsWith('/auth/v1/otp'));
+    check('OTP call allows creating the user', sentBody.create_user === true);
+    check('only the publishable key is sent', calls[0]!.init.headers.apikey === 'test-publishable-key');
+
+    responses = [{ status: 429, body: {} }];
+    const throttled = await requestEmailOtp('person@example.com');
+    check('provider rate limit is mapped', !throttled.ok && throttled.reason === 'rate_limited');
+
+    responses = [
+      {
+        status: 200,
+        body: {
+          access_token: 'must-not-leak',
+          refresh_token: 'must-not-leak',
+          user: { id: AUTH_USER, email: 'person@example.com' },
+        },
+      },
+    ];
+    const verified = await verifyEmailOtp('person@example.com', '12345678');
+    check('verification returns the provider user id', verified.ok && verified.userId === AUTH_USER);
+    check(
+      'provider tokens are discarded',
+      !('access_token' in verified) && !JSON.stringify(verified).includes('must-not-leak')
+    );
+
+    responses = [{ status: 200, body: { user: { id: AUTH_USER, email: 'other@example.com' } } }];
+    const mismatch = await verifyEmailOtp('person@example.com', '12345678');
+    check('a mismatched confirmed address is rejected', !mismatch.ok);
+
+    responses = [{ status: 400, body: {} }];
+    const badCode = await verifyEmailOtp('person@example.com', '12345678');
+    check('invalid code is mapped', !badCode.ok && badCode.reason === 'invalid_code');
+  } finally {
+    globalThis.fetch = realFetch;
+    for (const [name, value] of [
+      ['SUPABASE_URL', savedUrl],
+      ['SUPABASE_ANON_KEY', savedKey],
+      ['SUPABASE_PUBLISHABLE_KEY', savedPublishable],
+    ] as const) {
+      if (value === undefined) delete process.env[name];
+      else process.env[name] = value;
+    }
+  }
 }
 
 async function main() {

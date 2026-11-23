@@ -27,6 +27,9 @@ should make it feel more like a serious real-world product.
 - **Backend:** Vercel serverless functions — every file in `api/` is its own endpoint. No framework.
 - **Local dev server:** `server.ts` (Express + Vite middleware) is **development only**. It mounts the same `api/` handlers on one origin so `fetch('/api/...')` works identically locally and on Vercel. It is NOT used in production.
 - **AI:** Google Gemini via `@google/genai`. Server-side client in `api/_lib/genai.ts`.
+- **Auth:** passwordless email OTP via Supabase Auth (GoTrue). The browser never
+  talks to Supabase; `api/auth.ts` proxies both calls and issues a signed
+  HttpOnly session cookie — see "Email authentication" below.
 - **State:** App data (inventory, recipes, settings) is React state persisted to
   `localStorage` (keys prefixed `coldscan_*`). The **free trial is the exception**:
   it is server-authoritative, stored in Redis and keyed to an account — see below.
@@ -46,10 +49,14 @@ src/
     *Modal.tsx                # LiveVoiceModal, RecipeVoiceBotModal, CookingWizardModal, ItemModal, Settings
   data/mockData.ts            # Seed/default inventory, recipes, shopping list, settings
   data/cuisines.ts            # Cuisine catalog for personalization (keep ids in sync with api/_lib/cuisines.ts)
+  components/auth/
+    EmailOtpSheet.tsx         # Two-step email -> code sign-in sheet
   hooks/
     useTrial.ts               # Mirrors /api/trial, polls + rechecks on focus and on 402
+    useAuth.ts                # Mirrors /api/auth (email session) and feeds status into useTrial
   utils/
     api.ts                    # apiFetch(): sends the session cookie, turns 402 into TrialExpiredError
+    auth.ts                   # Thin client for /api/auth — no verification logic lives here
     trial.ts                  # Thin client for /api/trial — NO trial logic lives here
     i18n.ts                   # UI translations (9 languages) + localized name helpers
     currency.ts               # Currency conversion/formatting
@@ -63,9 +70,12 @@ api/
   _lib/livePersona.ts         # SINGLE SOURCE OF TRUTH for Live voice model/voice/persona
   _lib/kv.ts                  # Redis-over-HTTP client (Upstash / Vercel KV), in-memory dev fallback
   _lib/secrets.ts             # HMAC helpers keyed with TRIAL_SECRET (never hardcoded)
+  _lib/supabase.ts            # SERVER-ONLY GoTrue client for OTP request/verify (no SDK)
+  _lib/authCookie.ts          # Signed HttpOnly coldscan_auth session cookie
   _lib/trial.ts               # SINGLE SOURCE OF TRUTH for the 48h trial + requireActiveTrial()
   health.ts                   # GET, reports which env vars are configured (booleans only)
-  trial.ts                    # GET status; POST link-email / redeem-code / tutorial-seen
+  auth.ts                     # GET session; POST start / verify / sign-out (email OTP)
+  trial.ts                    # GET status; POST redeem-code / tutorial-seen
   live-token.ts               # Mints single-use Gemini Live ephemeral token
   scan-fridge.ts              # POST, vision analysis of a fridge photo
   generate-recipes.ts         # POST, recipes from inventory
@@ -156,15 +166,56 @@ New users get **48 hours** of full access. The rules:
   show the contact screen — never fake a successful result (see `ScanScreen.tsx`).
 - The identity cookie is `HttpOnly` + signed; the start time is written once with
   `SET NX`; emails and device signals are stored only as HMACs.
-- **Owner emails bypass the trial.** An account bound to the founder's address
-  (`OWNER_EMAILS` in `api/_lib/trial.ts`) or to any address in
-  `TRIAL_OWNER_EMAILS` is always treated as unlocked, on every device — the
-  access follows the email binding, so it starts applying the moment the owner
-  links the email. Keep this list in `trial.ts`/env only; never on the client.
+- **Email bindings are only created after OTP verification.** `linkVerifiedEmail()`
+  is called exclusively by `/api/auth` with the user id Supabase returned. There
+  is no endpoint that binds an address typed by the browser; `link-email` on
+  `/api/trial` now answers 410. Never add one back.
+- **Legacy bindings are untrusted.** Records created before this change have
+  `emailId` but no `emailVerifiedAt`; they are treated as unbound and are
+  revoked the first time the real owner verifies the address.
+- **Owner emails bypass the trial, but only when verified.** An account bound to
+  the founder's address (`OWNER_EMAILS` in `api/_lib/trial.ts`) or to any address
+  in `TRIAL_OWNER_EMAILS` is unlocked on every device only after `emailVerifiedAt`
+  is set. Keep the list in `trial.ts`/env only; never on the client.
+- **Verification never touches the clock.** It cannot start, extend or reset the
+  48 hours, and a signed-out browser keeps its trial identity.
 
-Verify changes with `npx tsx scripts/trial-selftest.ts` — 74 checks that run the
-whole suite twice, once on the in-memory fallback and once over the real Redis
-REST transport. Add `--real` to run pass 2 against the live Upstash database.
+## Email authentication (Supabase OTP)
+
+```
+browser -> POST /api/auth { action: 'start', email }
+server  -> Supabase POST /auth/v1/otp        (apikey = publishable key)
+browser <- generic 200 "code sent"
+
+browser -> POST /api/auth { action: 'verify', email, token }
+server  -> Supabase POST /auth/v1/verify
+server  -> linkVerifiedEmail() + signed HttpOnly `coldscan_auth` cookie
+browser <- { verified: true, trial }         (status from the stored clock)
+```
+
+- **Server-only credentials.** `SUPABASE_URL` + `SUPABASE_ANON_KEY` are read in
+  `api/_lib/supabase.ts`. Never prefix them with `VITE_`, never expose them in
+  client code, and **never add a service-role key** — it is not needed.
+- **No Supabase tokens in the browser.** The access/refresh tokens returned by
+  `/verify` are discarded. The session is ColdScan's own signed cookie
+  (`coldscan_auth`, HttpOnly, SameSite=Lax, 30 days), keyed with `TRIAL_SECRET`.
+- **`start` grants nothing.** It does not resolve or create a trial, its response
+  is identical for known and unknown addresses, and it is rate-limited per IP and
+  per address with a fail-closed limiter.
+- **`verify` is the only path to a trusted email.** It checks that Supabase
+  confirmed the same address that was submitted, then adopts an existing
+  verified account (keeping its original clock) or revokes an unverified claim.
+- **Signing out** clears `coldscan_auth` only. The trial identity, its clock and
+  the verified binding are untouched.
+- **Provider setup (dashboard, not code):** email provider + sign-ups enabled;
+  Magic Link template must include `{{ .Token }}`; custom SMTP for production;
+  Site URL and redirect allow-list set. `/api/health` reports
+  `auth.supabaseConfigured` as a boolean only.
+
+Verify changes with `npx tsx scripts/trial-selftest.ts` — 148 checks (74 per pass)
+that run the whole suite twice, once on the in-memory fallback and once over the
+real Redis REST transport. Supabase calls are mocked, so no email is sent. Add
+`--real` to run pass 2 against the live Upstash database.
 The store is provisioned by the Vercel + Upstash Marketplace integration, which
 injects `UPSTASH_REDIS_REST_*` (or `KV_REST_API_*`) into every environment;
 `api/_lib/kv.ts` reads whichever pair is present, lazily, per invocation.
@@ -195,20 +246,27 @@ Don't claim such a feature works unless it genuinely does.
 Set these in `.env` locally and in Vercel -> Settings -> Environment Variables
 (all environments). See `.env.example` for the full explanation of each.
 
-| Name                        | Required | Purpose                                  |
-| --------------------------- | -------- | ---------------------------------------- |
-| `GEMINI_API_KEY`            | yes      | All Gemini calls                          |
-| `TRIAL_SECRET`              | yes      | Signs trial sessions, derives identifiers |
-| `UPSTASH_REDIS_REST_URL`    | yes      | Stores server-side trial start times      |
-| `UPSTASH_REDIS_REST_TOKEN`  | yes      | ^                                         |
-| `TRIAL_ACCESS_CODES`        | no       | Codes handed out after the trial ends     |
-| `TRIAL_OWNER_EMAILS`        | no       | Extra emails with permanent full access   |
+| Name                        | Required | Purpose                                    |
+| --------------------------- | -------- | ------------------------------------------ |
+| `GEMINI_API_KEY`            | yes      | All Gemini calls                            |
+| `TRIAL_SECRET`              | yes      | Signs trial + auth sessions, derives ids    |
+| `UPSTASH_REDIS_REST_URL`    | yes      | Stores server-side trial start times        |
+| `UPSTASH_REDIS_REST_TOKEN`  | yes      | ^                                           |
+| `SUPABASE_URL`              | yes      | Supabase Auth endpoint for email OTP        |
+| `SUPABASE_ANON_KEY`         | yes      | Public/publishable auth key (server-only)   |
+| `TRIAL_ACCESS_CODES`        | no       | Codes handed out after the trial ends       |
+| `TRIAL_OWNER_EMAILS`        | no       | Extra emails with permanent full access     |
+
+`SUPABASE_PUBLISHABLE_KEY` is accepted as an alias for `SUPABASE_ANON_KEY`.
+Never set a Supabase service-role key for this app.
 
 `KV_REST_API_URL` / `KV_REST_API_TOKEN` work in place of the Upstash pair.
 
-Verify with `/api/health`: `geminiKeyConfigured`, `trial.secretConfigured` and
-`trial.storeConfigured` should all be `true`. Without the store the trial is not
-enforceable in production — each serverless instance would keep its own copy.
+Verify with `/api/health`: `geminiKeyConfigured`, `trial.secretConfigured`,
+`trial.storeConfigured` and `auth.supabaseConfigured` should all be `true`.
+Without the store the trial is not enforceable in production — each serverless
+instance would keep its own copy. Without Supabase config, the app still runs and
+the trial still works, but email sign-in reports itself unavailable.
 
 ## Deploy
 
