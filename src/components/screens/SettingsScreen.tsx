@@ -10,7 +10,10 @@ import {
   RotateCcw, 
   CheckCircle2,
   ShieldCheck,
-  Globe
+  Globe,
+  LogOut,
+  MailCheck,
+  ArrowRight
 } from 'lucide-react';
 import { AppSettings, CuisineType, LanguageType } from '../../types';
 import { t } from '../../utils/i18n';
@@ -28,10 +31,14 @@ interface SettingsScreenProps {
   trialUnlocked?: boolean;
   /** ISO expiry computed by the server. */
   trialExpiresAt?: string;
-  /** True once the trial is bound to an email. */
+  /** True once an email has been verified with a one-time code. */
   trialEmailLinked?: boolean;
-  /** Resolves true when the server bound the email to this account. */
-  onLinkEmail?: (email: string) => Promise<boolean>;
+  /** True when this browser has a live email session. */
+  authAuthenticated?: boolean;
+  /** Opens the email OTP sheet. Verification happens on the server. */
+  onVerifyEmail?: () => void;
+  /** Ends this browser's email session; the trial is untouched. */
+  onSignOut?: () => void;
   onReplayTutorial?: () => void;
 }
 
@@ -67,27 +74,11 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   trialUnlocked = false,
   trialExpiresAt = '',
   trialEmailLinked = false,
-  onLinkEmail,
+  authAuthenticated = false,
+  onVerifyEmail,
+  onSignOut,
   onReplayTutorial,
 }) => {
-  const [email, setEmail] = React.useState('');
-  const [emailError, setEmailError] = React.useState(false);
-  const [linking, setLinking] = React.useState(false);
-
-  const submitEmail = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!onLinkEmail || !email.trim() || linking) return;
-
-    setLinking(true);
-    try {
-      const ok = await onLinkEmail(email);
-      setEmailError(!ok);
-      if (ok) setEmail('');
-    } finally {
-      setLinking(false);
-    }
-  };
-
   const trialEnded = !trialUnlocked && trialMsLeft <= 0;
   const trialUrgent = !trialUnlocked && trialMsLeft > 0 && trialMsLeft <= 6 * 60 * 60 * 1000;
 
@@ -347,44 +338,52 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           </p>
         )}
 
-        {/* Bind the trial to an email so it survives clearing the browser */}
-        {!trialUnlocked && onLinkEmail && (
+        {/* Verified email = portable access. Verification happens via OTP only. */}
+        {!trialUnlocked && onVerifyEmail && (
           trialEmailLinked ? (
-            <p className="flex items-center gap-2 text-xs font-bold text-pine">
-              <ShieldCheck className="w-4 h-4 shrink-0 text-cold-dark" />
-              {t('trialEmailLinked', lang)}
-            </p>
+            <div className="rounded-2xl bg-mint border border-cold/25 px-4 py-3 space-y-2">
+              <div className="flex items-center gap-2 text-xs font-bold text-pine">
+                <MailCheck className="w-4 h-4 shrink-0 text-cold-dark" strokeWidth={2.5} />
+                <span className="flex-1">{t('emailOtpVerified', lang)}</span>
+                {authAuthenticated && (
+                  <span className="rounded-full bg-white/70 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-pine">
+                    {t('emailOtpSignedIn', lang)}
+                  </span>
+                )}
+              </div>
+              {authAuthenticated ? (
+                <button
+                  type="button"
+                  onClick={onSignOut}
+                  className="inline-flex items-center gap-1.5 text-[11px] font-bold text-ink/50 transition-colors hover:text-pine"
+                >
+                  <LogOut className="w-3.5 h-3.5" strokeWidth={2.5} />
+                  {t('emailOtpSignOut', lang)}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={onVerifyEmail}
+                  className="inline-flex items-center gap-1.5 text-[11px] font-bold text-pine transition-colors hover:text-pine-light"
+                >
+                  {t('emailOtpTitle', lang)}
+                  <ArrowRight className="w-3.5 h-3.5" strokeWidth={2.5} />
+                </button>
+              )}
+            </div>
           ) : (
-            <div className="rounded-2xl bg-slate-50 border border-slate-200 p-3 space-y-2">
+            <div className="rounded-2xl bg-slate-50 border border-slate-200 p-3 space-y-2.5">
               <p className="text-xs text-slate-500 leading-relaxed font-medium">
                 {t('trialSaveAccountHint', lang)}
               </p>
-              <form onSubmit={submitEmail} className="flex gap-2">
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => {
-                    setEmail(e.target.value);
-                    setEmailError(false);
-                  }}
-                  placeholder={t('trialEmailPlaceholder', lang)}
-                  autoComplete="email"
-                  spellCheck={false}
-                  className={`min-w-0 flex-1 rounded-xl bg-white px-3 py-2.5 text-[13px] font-semibold text-pine placeholder:text-slate-400 border outline-none ${
-                    emailError ? 'border-red-400' : 'border-slate-200 focus:border-cold'
-                  }`}
-                />
-                <button
-                  type="submit"
-                  disabled={linking}
-                  className="shrink-0 rounded-xl bg-pine px-4 py-2.5 text-[11px] font-black uppercase tracking-widest text-cold hover:bg-pine-light disabled:opacity-60"
-                >
-                  {linking ? '…' : t('trialSaveAccountSubmit', lang)}
-                </button>
-              </form>
-              {emailError && (
-                <p className="text-xs font-semibold text-red-600">{t('trialEmailInvalid', lang)}</p>
-              )}
+              <button
+                type="button"
+                onClick={onVerifyEmail}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-pine px-4 py-2.5 text-[11px] font-black uppercase tracking-widest text-cold transition-colors hover:bg-pine-light"
+              >
+                {t('emailOtpTitle', lang)}
+                <ArrowRight className="w-3.5 h-3.5" strokeWidth={2.6} />
+              </button>
             </div>
           )
         )}

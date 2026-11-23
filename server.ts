@@ -13,6 +13,7 @@ import express from 'express';
 import { createServer as createViteServer } from 'vite';
 
 import aiChat from './api/ai-chat.js';
+import auth from './api/auth.js';
 import generateRecipes from './api/generate-recipes.js';
 import generateShoppingList from './api/generate-shopping-list.js';
 import geocode from './api/geocode.js';
@@ -34,6 +35,7 @@ app.use(express.urlencoded({ limit: '15mb', extended: true }));
 
 const routes: Record<string, ApiHandler> = {
   '/api/health': health,
+  '/api/auth': auth,
   '/api/live-token': liveToken,
   '/api/scan-fridge': scanFridge,
   '/api/generate-recipes': generateRecipes,

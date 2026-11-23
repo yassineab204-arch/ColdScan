@@ -10,6 +10,7 @@ import { AssistantChatModal } from './components/AssistantChatModal';
 import { WelcomeTutorial } from './components/WelcomeTutorial';
 import { TrialExpiredScreen } from './components/TrialExpiredScreen';
 import { TrialBanner } from './components/TrialBanner';
+import { EmailOtpSheet } from './components/auth/EmailOtpSheet';
 
 import { HomeScreen } from './components/screens/HomeScreen';
 import { ScanScreen } from './components/screens/ScanScreen';
@@ -24,6 +25,7 @@ import { convertCurrency } from './utils/currency';
 import { t } from './utils/i18n';
 import { apiFetch, onTrialExpired } from './utils/api';
 import { useTrial } from './hooks/useTrial';
+import { useAuth } from './hooks/useAuth';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabType>('home');
@@ -33,6 +35,10 @@ export default function App() {
   // Free-trial / access state. The server owns the clock: this hook only
   // mirrors what /api/trial reports and re-checks on focus and on 402s.
   const trial = useTrial();
+  // Email session (HttpOnly cookie). Verification results feed straight back
+  // into the trial status, so the UI never disagrees with the server.
+  const auth = useAuth(trial.applyStatus, trial.loaded);
+  const [isEmailOtpOpen, setIsEmailOtpOpen] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
   const [accessNotice, setAccessNotice] = useState<string | null>(null);
 
@@ -149,10 +155,8 @@ export default function App() {
     return true;
   };
 
-  const handleLinkEmail = async (email: string): Promise<boolean> => {
-    const result = await trial.linkEmail(email);
-    if (result.ok) setAccessNotice(t('trialEmailLinked', lang));
-    return result.ok;
+  const handleSignOut = () => {
+    void auth.signOut();
   };
 
   // Auto-dismiss the unlock confirmation
@@ -401,7 +405,7 @@ export default function App() {
             lang={lang}
             emailLinked={trial.status.emailLinked}
             onRedeemCode={handleRedeemCode}
-            onLinkEmail={handleLinkEmail}
+            onVerifyEmail={() => setIsEmailOtpOpen(true)}
             onBackHome={() => setActiveTab('home')}
           />
         )}
@@ -493,11 +497,22 @@ export default function App() {
             trialUnlocked={trial.status.unlocked}
             trialExpiresAt={trial.status.expiresAt}
             trialEmailLinked={trial.status.emailLinked}
-            onLinkEmail={handleLinkEmail}
+            authAuthenticated={auth.authenticated}
+            onVerifyEmail={() => setIsEmailOtpOpen(true)}
+            onSignOut={handleSignOut}
             onReplayTutorial={() => setShowTutorial(true)}
           />
         )}
       </main>
+
+      {/* Passwordless email verification (server-side OTP) */}
+      <EmailOtpSheet
+        isOpen={isEmailOtpOpen}
+        lang={lang}
+        auth={auth}
+        onClose={() => setIsEmailOtpOpen(false)}
+        onVerified={() => setAccessNotice(t('emailOtpVerified', lang))}
+      />
 
       {/* First-open tutorial */}
       <WelcomeTutorial

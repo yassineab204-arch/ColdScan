@@ -2,9 +2,13 @@
  * Trial status + actions endpoint.
  *
  *   GET  /api/trial                        -> current status (starts the clock on first call)
- *   POST /api/trial { action: 'link-email',    email }
  *   POST /api/trial { action: 'redeem-code',   code  }
  *   POST /api/trial { action: 'tutorial-seen' }
+ *
+ * Email binding is NOT here any more. It moved to `POST /api/auth` so that an
+ * address can only be bound after Supabase has verified a one-time code. The
+ * old `link-email` action is refused explicitly, which also protects users on a
+ * cached older build from silently claiming an address they do not own.
  *
  * Every response reports the status computed from the SERVER's stored start
  * time and the SERVER's clock. Nothing the client sends can move the deadline.
@@ -12,7 +16,6 @@
 
 import { ApiRequest, ApiResponse, readBody } from './_lib/http.js';
 import {
-  linkEmail,
   markTutorialSeen,
   rateLimit,
   redeemCode,
@@ -42,22 +45,17 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     return res.status(200).json({ success: true, trial: session.status });
   }
 
-  const { action, email, code } = readBody(req);
+  const { action, code } = readBody(req);
 
   try {
     switch (action) {
-      case 'link-email': {
-        const limit = await rateLimit(`email:${session.accountId}`, 10, 60 * 60);
-        if (!limit.allowed) {
-          return res.status(429).json({ error: 'Too many attempts. Please try again later.' });
-        }
-
-        const result = await linkEmail(req, res, session, String(email ?? ''));
-        if (!result.ok) {
-          return res.status(400).json({ error: 'Please enter a valid email address.' });
-        }
-        return res.status(200).json({ success: true, trial: toStatus(result.record) });
-      }
+      case 'link-email':
+        return res.status(410).json({
+          success: false,
+          error: 'Verify your email with a one-time code to link it.',
+          requiresEmailVerification: true,
+          trial: session.status,
+        });
 
       case 'redeem-code': {
         const result = await redeemCode(req, session, String(code ?? ''));

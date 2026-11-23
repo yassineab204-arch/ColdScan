@@ -17,6 +17,8 @@ trilingual (Darija / French / English) voice sous-chef powered by Gemini Live.
    | `TRIAL_SECRET`            | yes      | you (see below)                                   |
    | `UPSTASH_REDIS_REST_URL`  | yes      | **Upstash integration, automatically**            |
    | `UPSTASH_REDIS_REST_TOKEN`| yes      | **Upstash integration, automatically**            |
+   | `SUPABASE_URL`            | yes      | you (Supabase → Project Settings → API)           |
+   | `SUPABASE_ANON_KEY`       | yes      | you (publishable/anon key, **never** service role) |
    | `TRIAL_ACCESS_CODES`      | no       | you, e.g. `AB12-CD34:unlock`                      |
 
    **Redis:** connecting an Upstash database from the Vercel Marketplace injects
@@ -53,6 +55,11 @@ Check `https://<your-app>.vercel.app/api/health`:
     "storeConfigured": true,    // Redis reachable  <-- must be true
     "storeBinding": "upstash",  // or "vercel-kv"
     "environment": "production"
+  },
+  "auth": {
+    "provider": "supabase",
+    "supabaseConfigured": true, // SUPABASE_URL + SUPABASE_ANON_KEY are set
+    "emailOtpEnabled": true
   }
 }
 ```
@@ -116,8 +123,53 @@ browser → POST /api/scan-fridge (or any premium route)
 | Account identity    | signed **HttpOnly** cookie `coldscan_sid` (JS cannot read it) |
 | Trial start time    | Redis, keyed to the account, written once with `SET NX`       |
 | Expiry              | computed on the server as `startedAt + 48h`                   |
-| Email link          | stored as an HMAC — the raw address is never persisted        |
+| Email link          | only after OTP; stored as an HMAC — never in the clear        |
+| Email session       | signed **HttpOnly** cookie `coldscan_auth` (30 days)          |
 | Device link         | salted hash of IP + User-Agent — never stored in the clear    |
+
+## Email sign-in (passwordless OTP)
+
+An email address is **only** linked after Supabase Auth confirms a one-time code
+for it. Typing an address grants nothing, and the trial clock is never touched by
+signing in or out.
+
+```
+browser → POST /api/auth { action: 'start', email }
+server  → Supabase POST /auth/v1/otp          (server-held publishable key)
+browser ← generic 200 “code sent”             (identical for known/unknown)
+
+browser → POST /api/auth { action: 'verify', email, token }
+server  → Supabase POST /auth/v1/verify
+server  → adopts the verified account (or binds this one) + sets coldscan_auth
+browser ← { verified: true, trial }           (status from the stored clock)
+```
+
+- The browser never receives a Supabase key or token. `api/_lib/supabase.ts` is
+  server-only and the returned access/refresh tokens are discarded.
+- Sessions are ColdScan's own signed HttpOnly cookie, HMAC-ed with `TRIAL_SECRET`.
+- Rate limits are applied per IP and per address, and fail closed.
+- A previously squatted, unverified binding is revoked when the real owner
+  verifies the address; it can never be inherited.
+
+### Supabase dashboard setup (one-time)
+
+1. **Authentication → Providers → Email:** enabled, sign-ups allowed.
+2. **Authentication → Email Templates → Magic Link:** include `{{ .Token }}`.
+   Without it the email only contains a link and the user never sees a code.
+3. **Authentication → SMTP:** configure a real provider. Supabase's built-in
+   sender is for testing only and is heavily rate-limited.
+4. **Authentication → URL Configuration:** Site URL = `https://cold-scan.vercel.app`,
+   and add preview/localhost origins to the redirect allow-list.
+5. Add `SUPABASE_URL` and `SUPABASE_ANON_KEY` to Vercel for **Production,
+   Preview and Development**. Never add a service-role key.
+
+`/api/health` reports `auth.supabaseConfigured` as a boolean (never the values).
+
+No database migration is required. Supabase manages `auth.users` itself, and the
+trial stays in the existing Redis/Vercel KV store keyed to the account. The only
+one-time data behaviour change is that email bindings created by the old
+unauthenticated flow are treated as unverified until the real owner proves
+control with a code.
 
 **Why clearing browser storage doesn't restart it**
 
@@ -125,13 +177,17 @@ browser → POST /api/scan-fridge (or any premium route)
 2. The account id lives in an `HttpOnly` cookie that page scripts cannot read or delete.
 3. The start time is written with `SET NX`, so an account can never get a second one.
 4. If the cookie *is* cleared, a hashed device fingerprint re-links the browser to the same account.
-5. Once the user adds their email, the trial follows the person across browsers and devices.
+5. Once the user verifies their email with a one-time code, the trial follows the person across browsers and devices.
 6. Editing the front-end changes nothing: every premium route re-checks the trial and returns `402`.
 
 Honest limitation: a determined user on a *different* device with a *different*
-IP, who never linked an email, can start a new trial. Closing that fully requires
-real authenticated accounts. Everything short of that — devtools, incognito,
-clearing storage, editing the bundle, forging the cookie — is covered.
+IP, who never verifies an email, can still start a new trial. Verified accounts
+are portable and cannot be reset by clearing anything. Closing the remaining gap
+fully requires payments and stronger identity, which do not exist yet.
+
+Signing in is **not** a payment bypass: an expired trial stays expired after
+verification, and every premium endpoint keeps returning `402`. Only a redeemed
+access code or a verified owner email unlocks access.
 
 **Handing out access after the trial**
 
@@ -147,7 +203,7 @@ TRIAL_ACCESS_CODES="8FJ2-QW71:unlock,K93M-2RTX:extend:48"
 Run the gate's self-test with:
 
 ```bash
-npx tsx scripts/trial-selftest.ts          # 74 checks, no Redis needed
+npx tsx scripts/trial-selftest.ts          # 148 checks, no Redis needed
 npx tsx scripts/trial-selftest.ts --real   # same suite against the real Upstash DB
 ```
 
@@ -171,7 +227,8 @@ rather than silently granting access.
 | `/api/ai-chat`               | Text assistant                            |
 | `/api/recipe-voice-bot`      | Cooking sous-chef turns + step/timer actions |
 | `/api/tts`                   | Speech synthesis (WAV)                    |
-| `/api/trial`                 | Trial status, email binding, access codes |
+| `/api/auth`                  | Email OTP start/verify, session, sign-out  |
+| `/api/trial`                 | Trial status, access codes, tutorial flag  |
 
 Uploaded photos are downscaled in the browser to 1280px/JPEG before upload
 (see `src/utils/image.ts`) to stay under Vercel's 4.5 MB request body limit.

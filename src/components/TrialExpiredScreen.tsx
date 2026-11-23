@@ -21,12 +21,12 @@ const MAILTO_LINK = `mailto:${BUSINESS_EMAIL}?subject=ColdScan%20access%20reques
 
 interface TrialExpiredScreenProps {
   lang: LanguageType;
-  /** True once the account is bound to an email. */
+  /** True once an email has been verified with a one-time code. */
   emailLinked: boolean;
   /** Resolves true when the server accepted the code. */
   onRedeemCode: (code: string) => Promise<boolean>;
-  /** Resolves true when the server bound the email to this account. */
-  onLinkEmail: (email: string) => Promise<boolean>;
+  /** Opens the email OTP sheet. The server does the verification. */
+  onVerifyEmail: () => void;
   onBackHome: () => void;
 }
 
@@ -43,7 +43,7 @@ export const TrialExpiredScreen: React.FC<TrialExpiredScreenProps> = ({
   lang,
   emailLinked,
   onRedeemCode,
-  onLinkEmail,
+  onVerifyEmail,
   onBackHome,
 }) => {
   const reduce = useReducedMotion();
@@ -51,10 +51,6 @@ export const TrialExpiredScreen: React.FC<TrialExpiredScreenProps> = ({
   const [code, setCode] = useState('');
   const [codeError, setCodeError] = useState(false);
   const [redeeming, setRedeeming] = useState(false);
-
-  const [email, setEmail] = useState('');
-  const [emailError, setEmailError] = useState(false);
-  const [linking, setLinking] = useState(false);
 
   const submitCode = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,20 +63,6 @@ export const TrialExpiredScreen: React.FC<TrialExpiredScreenProps> = ({
       if (ok) setCode('');
     } finally {
       setRedeeming(false);
-    }
-  };
-
-  const submitEmail = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email.trim() || linking) return;
-
-    setLinking(true);
-    try {
-      const ok = await onLinkEmail(email);
-      setEmailError(!ok);
-      if (ok) setEmail('');
-    } finally {
-      setLinking(false);
     }
   };
 
@@ -147,14 +129,11 @@ export const TrialExpiredScreen: React.FC<TrialExpiredScreenProps> = ({
           {emailLinked ? (
             <p className="flex items-center gap-2 text-xs font-bold text-pine">
               <MailCheck className="h-4 w-4 shrink-0 text-cold-dark" strokeWidth={2.6} />
-              {t('trialEmailLinked', lang)}
+              {t('emailOtpVerified', lang)}
             </p>
           ) : (
             <>
-              <label
-                htmlFor="coldscan-trial-email"
-                className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.14em] text-ink/50"
-              >
+              <label className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.14em] text-ink/50">
                 <Mail className="h-3.5 w-3.5" strokeWidth={2.6} />
                 {t('trialSaveAccount', lang)}
               </label>
@@ -162,38 +141,14 @@ export const TrialExpiredScreen: React.FC<TrialExpiredScreenProps> = ({
                 {t('trialSaveAccountHint', lang)}
               </p>
 
-              <form onSubmit={submitEmail} className="mt-3 flex gap-2">
-                <input
-                  id="coldscan-trial-email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => {
-                    setEmail(e.target.value);
-                    setEmailError(false);
-                  }}
-                  placeholder={t('trialEmailPlaceholder', lang)}
-                  autoComplete="email"
-                  spellCheck={false}
-                  className={`min-w-0 flex-1 rounded-full bg-white px-4 py-3 text-sm font-semibold text-pine placeholder:text-ink/35 ring-1 outline-none transition-shadow ${
-                    emailError ? 'ring-red-400 focus:ring-red-500' : 'ring-ink/10 focus:ring-cold'
-                  }`}
-                />
-                <button
-                  type="submit"
-                  disabled={linking}
-                  className="shrink-0 rounded-full bg-white px-5 py-3 text-sm font-bold text-pine ring-1 ring-ink/10 transition-all hover:ring-cold/60 active:scale-[0.98] disabled:opacity-60"
-                >
-                  {linking ? (
-                    <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2.6} />
-                  ) : (
-                    t('trialSaveAccountSubmit', lang)
-                  )}
-                </button>
-              </form>
-
-              {emailError && (
-                <p className="mt-2 text-xs font-semibold text-red-600">{t('trialEmailInvalid', lang)}</p>
-              )}
+              <button
+                type="button"
+                onClick={onVerifyEmail}
+                className="mt-3 flex w-full items-center justify-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-bold text-pine ring-1 ring-ink/10 transition-all hover:ring-cold/60 active:scale-[0.98]"
+              >
+                {t('trialSaveAccountSubmit', lang)}
+                <ArrowRight className="h-4 w-4" strokeWidth={2.6} />
+              </button>
             </>
           )}
         </div>

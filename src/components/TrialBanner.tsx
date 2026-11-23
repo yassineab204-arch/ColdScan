@@ -9,7 +9,7 @@ interface TrialBannerProps {
   /** Milliseconds left, used only to decide how urgent the styling is. */
   msLeft: number;
   unlocked: boolean;
-  /** True once the trial is tied to an email and survives any browser. */
+  /** True once an email has been verified and the trial survives any browser. */
   emailLinked: boolean;
   lang: LanguageType;
   onContact: () => void;

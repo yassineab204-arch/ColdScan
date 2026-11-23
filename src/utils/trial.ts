@@ -6,8 +6,11 @@
  * the user's account and stored in a shared datastore. This module only:
  *
  *   - asks the server what the current status is,
- *   - sends the three user actions (link email, redeem code, tutorial seen),
+ *   - sends the remaining user actions (redeem code, tutorial seen),
  *   - caches the last answer in memory so the UI can render immediately.
+ *
+ * Email verification lives in `utils/auth.ts`: an address is only linked after
+ * the server has verified a one-time code, so nothing here can bind an email.
  *
  * Nothing here is authoritative. Clearing localStorage does not restart the
  * trial, because there is nothing here to clear: the identity lives in an
@@ -31,7 +34,9 @@ export interface TrialStatus {
   active: boolean;
   expired: boolean;
   unlocked: boolean;
+  /** True only when an email was proven with a one-time code. */
   emailLinked: boolean;
+  emailVerified: boolean;
   tutorialSeen: boolean;
   trialHours: number;
   /** Server clock at the time of the response. */
@@ -52,6 +57,7 @@ export const UNKNOWN_STATUS: TrialStatus = {
   expired: false,
   unlocked: false,
   emailLinked: false,
+  emailVerified: false,
   tutorialSeen: true,
   trialHours: TRIAL_HOURS,
   serverTime: '',
@@ -105,15 +111,6 @@ async function postAction(body: Record<string, unknown>): Promise<{
   } catch {
     return { ok: false, trial: null };
   }
-}
-
-/**
- * Binds the trial to an email so it follows the person across browsers and
- * devices — and so a cleared browser resumes the SAME clock rather than
- * getting a new trial.
- */
-export function linkTrialEmail(email: string) {
-  return postAction({ action: 'link-email', email });
 }
 
 export function redeemAccessCode(code: string) {
