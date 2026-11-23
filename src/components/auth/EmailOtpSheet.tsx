@@ -10,6 +10,8 @@ interface EmailOtpSheetProps {
   isOpen: boolean;
   lang: LanguageType;
   auth: UseAuth;
+  /** 'scan' | 'recipe' | 'voice' when the free preview ran out; null for a normal sign-in. */
+  reason?: string | null;
   onClose: () => void;
   /** Called after the server has verified the code. */
   onVerified: () => void;
@@ -32,6 +34,7 @@ export const EmailOtpSheet: React.FC<EmailOtpSheetProps> = ({
   isOpen,
   lang,
   auth,
+  reason,
   onClose,
   onVerified,
 }) => {
@@ -180,11 +183,17 @@ export const EmailOtpSheet: React.FC<EmailOtpSheetProps> = ({
               id="coldscan-email-otp-title"
               className="mt-4 text-xl font-extrabold tracking-[-0.02em] text-pine"
             >
-              {step === 'email' ? t('emailOtpTitle', lang) : t('emailOtpCodeTitle', lang)}
+              {step === 'email'
+                ? reason
+                  ? t('previewLimitTitle', lang)
+                  : t('emailOtpTitle', lang)
+                : t('emailOtpCodeTitle', lang)}
             </h2>
             <p className="mt-2 text-sm font-medium leading-relaxed text-ink/65">
               {step === 'email'
-                ? t('emailOtpBody', lang)
+                ? reason
+                  ? t('previewLimitBody', lang)
+                  : t('emailOtpBody', lang)
                 : t('emailOtpCodeBody', lang).replace('__email__', email.trim())}
             </p>
           </div>

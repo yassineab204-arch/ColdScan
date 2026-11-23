@@ -23,7 +23,12 @@ import { SettingsScreen } from './components/screens/SettingsScreen';
 
 import { convertCurrency } from './utils/currency';
 import { t } from './utils/i18n';
-import { apiFetch, onTrialExpired } from './utils/api';
+import {
+  apiFetch,
+  onEmailVerificationRequired,
+  onPreviewUsed,
+  onTrialExpired,
+} from './utils/api';
 import { useTrial } from './hooks/useTrial';
 import { useAuth } from './hooks/useAuth';
 
@@ -39,6 +44,7 @@ export default function App() {
   // into the trial status, so the UI never disagrees with the server.
   const auth = useAuth(trial.applyStatus, trial.loaded);
   const [isEmailOtpOpen, setIsEmailOtpOpen] = useState(false);
+  const [emailReason, setEmailReason] = useState<string | null>(null);
   const [showTutorial, setShowTutorial] = useState(false);
   const [accessNotice, setAccessNotice] = useState<string | null>(null);
 
@@ -116,7 +122,7 @@ export default function App() {
     if (trial.loaded && !trial.status.tutorialSeen && !trial.locked) setShowTutorial(true);
   }, [trial.loaded, trial.status.tutorialSeen, trial.locked]);
 
-  // Any premium API call that comes back 402 locks the UI immediately.
+  // A genuine 48-hour expiry locks the product tabs immediately.
   useEffect(
     () =>
       onTrialExpired(({ trial: serverStatus }) => {
@@ -124,6 +130,36 @@ export default function App() {
         else void trial.refresh();
       }),
     [trial.applyStatus, trial.refresh]
+  );
+
+  // A preview limit is NOT a lockout: keep the app usable and ask for the
+  // email that unlocks the 48 hours.
+  useEffect(
+    () =>
+      onEmailVerificationRequired(({ trial: serverStatus, feature }) => {
+        if (serverStatus) trial.applyStatus(serverStatus);
+        setEmailReason(feature ?? 'preview');
+        setIsEmailOtpOpen(true);
+      }),
+    [trial.applyStatus]
+  );
+
+  // Metered calls return how many free tries remain. Refresh the banner and
+  // show a short, non-blocking countdown.
+  useEffect(
+    () =>
+      onPreviewUsed(({ remaining }) => {
+        void trial.refresh();
+        if (remaining > 0) {
+          setAccessNotice(
+            t('previewTriesLeft', settings.language || 'en').replace(
+              '__count__',
+              String(remaining)
+            )
+          );
+        }
+      }),
+    [trial.refresh, settings.language]
   );
 
   // Derived counts
@@ -137,6 +173,24 @@ export default function App() {
   const accessLocked = trial.locked;
   const showLockScreen = accessLocked && activeTab !== 'home';
   const lang = settings.language || 'en';
+
+  const openEmailSheet = (reason: string | null = 'preview') => {
+    setEmailReason(reason);
+    setIsEmailOtpOpen(true);
+  };
+
+  /** Live voice consumes one of its two preview tries before it connects. */
+  const openLiveVoice = () => {
+    if (trial.status.preview && trial.status.previewRemaining.voice <= 0) {
+      openEmailSheet('voice');
+      return;
+    }
+    if (accessLocked) {
+      setActiveTab('settings');
+      return;
+    }
+    setIsLiveVoiceOpen(true);
+  };
 
   const handleFinishTutorial = () => {
     setShowTutorial(false);
@@ -373,7 +427,7 @@ export default function App() {
         activeTab={activeTab}
         expiringCount={expiringCount}
         language={settings.language}
-        onOpenLiveVoice={() => openGated(() => setIsLiveVoiceOpen(true))}
+        onOpenLiveVoice={openLiveVoice}
         onOpenAssistant={() => openGated(() => setIsAssistantOpen(true))}
         onNavigate={(tab) => setActiveTab(tab)}
         onSelectLanguage={(lang) => setSettings((prev) => ({ ...prev, language: lang }))}
@@ -396,6 +450,9 @@ export default function App() {
             emailLinked={trial.status.emailLinked}
             lang={lang}
             onContact={() => setActiveTab('settings')}
+            preview={trial.status.preview}
+            previewRemaining={trial.status.previewRemaining}
+            onUnlock={() => openEmailSheet('preview')}
           />
         )}
 
@@ -418,7 +475,7 @@ export default function App() {
             settings={settings}
             onUpdateSettings={(newSettings) => setSettings((prev) => ({ ...prev, ...newSettings }))}
             onNavigate={(tab) => setActiveTab(tab)}
-            onOpenLiveVoice={() => openGated(() => setIsLiveVoiceOpen(true))}
+            onOpenLiveVoice={openLiveVoice}
             onOpenAssistant={() => openGated(() => setIsAssistantOpen(true))}
             onQuickScan={() => setActiveTab('scan')}
           />
@@ -497,8 +554,11 @@ export default function App() {
             trialUnlocked={trial.status.unlocked}
             trialExpiresAt={trial.status.expiresAt}
             trialEmailLinked={trial.status.emailLinked}
+            trialPreview={trial.status.preview}
+            previewRemaining={trial.status.previewRemaining}
             authAuthenticated={auth.authenticated}
-            onVerifyEmail={() => setIsEmailOtpOpen(true)}
+            onVerifyEmail={() => openEmailSheet(null)}
+            onUnlockTrial={() => openEmailSheet('preview')}
             onSignOut={handleSignOut}
             onReplayTutorial={() => setShowTutorial(true)}
           />
@@ -510,8 +570,16 @@ export default function App() {
         isOpen={isEmailOtpOpen}
         lang={lang}
         auth={auth}
-        onClose={() => setIsEmailOtpOpen(false)}
-        onVerified={() => setAccessNotice(t('emailOtpVerified', lang))}
+        reason={emailReason}
+        onClose={() => {
+          setIsEmailOtpOpen(false);
+          setEmailReason(null);
+        }}
+        onVerified={() => {
+          setAccessNotice(t('emailOtpVerified', lang));
+          setIsEmailOtpOpen(false);
+          setEmailReason(null);
+        }}
       />
 
       {/* First-open tutorial */}

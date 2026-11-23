@@ -21,22 +21,36 @@
 
 export const TRIAL_HOURS = 48;
 export const TRIAL_DAYS = 2;
+export const PREVIEW_TRIES = 2;
+
+export interface PreviewUses {
+  scan: number;
+  recipe: number;
+  voice: number;
+}
 
 export interface TrialStatus {
   accountId: string;
-  /** ISO start time, from the server. */
+  /** ISO account-creation time, from the server. */
   startedAt: string;
-  /** ISO expiry, computed by the server. */
+  /** ISO time the 48-hour clock was activated, or null in preview. */
+  activatedAt: string | null;
+  /** ISO expiry, computed by the server. Empty while in preview. */
   expiresAt: string;
   msRemaining: number;
   hoursRemaining: number;
   daysRemaining: number;
   active: boolean;
   expired: boolean;
+  /** True while the visitor is using the anonymous free preview. */
+  preview: boolean;
   unlocked: boolean;
   /** True only when an email was proven with a one-time code. */
   emailLinked: boolean;
   emailVerified: boolean;
+  /** Free tries used / left, per feature. */
+  previewUses: PreviewUses;
+  previewRemaining: PreviewUses;
   tutorialSeen: boolean;
   trialHours: number;
   /** Server clock at the time of the response. */
@@ -47,6 +61,7 @@ export interface TrialStatus {
 export const UNKNOWN_STATUS: TrialStatus = {
   accountId: '',
   startedAt: '',
+  activatedAt: null,
   expiresAt: '',
   msRemaining: 0,
   hoursRemaining: TRIAL_HOURS,
@@ -55,9 +70,12 @@ export const UNKNOWN_STATUS: TrialStatus = {
   // The server still refuses any premium call, so this cannot leak access.
   active: true,
   expired: false,
+  preview: false,
   unlocked: false,
   emailLinked: false,
   emailVerified: false,
+  previewUses: { scan: 0, recipe: 0, voice: 0 },
+  previewRemaining: { scan: PREVIEW_TRIES, recipe: PREVIEW_TRIES, voice: PREVIEW_TRIES },
   tutorialSeen: true,
   trialHours: TRIAL_HOURS,
   serverTime: '',
@@ -76,7 +94,7 @@ function isStatus(value: unknown): value is TrialStatus {
   return Boolean(value) && typeof (value as TrialStatus).expiresAt === 'string';
 }
 
-/** Fetches the current status. Starts the clock on the very first call. */
+/** Fetches the current status. The first call creates a preview account; it does not start the 48-hour clock. */
 export async function fetchTrialStatus(): Promise<TrialStatus | null> {
   try {
     const res = await trialRequest({ method: 'GET' });

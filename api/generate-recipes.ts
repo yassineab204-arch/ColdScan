@@ -1,7 +1,7 @@
 import { Type } from '@google/genai';
 import { TEXT_MODEL, getGenAI, languageMandate } from './_lib/genai.js';
 import { ApiRequest, ApiResponse, fail, methodGuard, readBody } from './_lib/http.js';
-import { requireActiveTrial } from './_lib/trial.js';
+import { requireFeatureAccess } from './_lib/trial.js';
 import { CuisineOption, findCuisineOption, sanitizeCuisines } from './_lib/cuisines.js';
 
 export default async function handler(req: ApiRequest, res: ApiResponse) {
@@ -9,7 +9,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
 
   // Server-side trial gate: refuses the work once the 48 hours are up,
   // regardless of anything the client claims.
-  if (!(await requireActiveTrial(req, res))) return;
+  if (!(await requireFeatureAccess(req, res, 'recipe'))) return;
 
   try {
     const {

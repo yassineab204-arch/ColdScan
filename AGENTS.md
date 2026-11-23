@@ -55,7 +55,7 @@ src/
     useTrial.ts               # Mirrors /api/trial, polls + rechecks on focus and on 402
     useAuth.ts                # Mirrors /api/auth (email session) and feeds status into useTrial
   utils/
-    api.ts                    # apiFetch(): sends the session cookie, turns 402 into TrialExpiredError
+    api.ts                    # apiFetch(): sends the cookie; splits 402 into email-required vs expired
     auth.ts                   # Thin client for /api/auth — no verification logic lives here
     trial.ts                  # Thin client for /api/trial — NO trial logic lives here
     i18n.ts                   # UI translations (9 languages) + localized name helpers
@@ -72,7 +72,7 @@ api/
   _lib/secrets.ts             # HMAC helpers keyed with TRIAL_SECRET (never hardcoded)
   _lib/supabase.ts            # SERVER-ONLY GoTrue client for OTP request/verify (no SDK)
   _lib/authCookie.ts          # Signed HttpOnly coldscan_auth session cookie
-  _lib/trial.ts               # SINGLE SOURCE OF TRUTH for the 48h trial + requireActiveTrial()
+  _lib/trial.ts               # SINGLE SOURCE OF TRUTH for preview limits, the 48h trial and feature gates
   health.ts                   # GET, reports which env vars are configured (booleans only)
   auth.ts                     # GET session; POST start / verify / sign-out (email OTP)
   trial.ts                    # GET status; POST redeem-code / tutorial-seen
@@ -148,37 +148,57 @@ browser -> wss://...google...     (mic PCM16 16kHz <-> model audio PCM16 24kHz)
   session at 30 minutes. Never put the API key in client code.
 
 
-## The free trial (server-enforced — do not weaken)
+## Preview + free trial (server-enforced — do not weaken)
 
-New users get **48 hours** of full access. The rules:
+New accounts start in a **preview**: no clock, no expiry, and **two tries per
+feature** (scanning, recipes, voice). Verifying an email starts **48 hours** of
+full access from that moment. The rules:
 
-- **`api/_lib/trial.ts` is the single source of truth.** Trial length, expiry,
-  access codes and the account model all live there. Change it there, nowhere else.
+- **`api/_lib/trial.ts` is the single source of truth.** Preview limits, trial
+  length, activation, expiry, access codes and the account model all live there.
+  Change it there, nowhere else.
 - **The client decides nothing.** `src/utils/trial.ts` and `src/hooks/useTrial.ts`
   only mirror what `/api/trial` reports. Never reintroduce a `localStorage`-based
   trial, a client-side countdown that grants access, or a hardcoded access code.
-- **Every premium endpoint must call `requireActiveTrial(req, res)`** right after
-  its method guard, and return immediately if it yields `null`. If you add a new
-  endpoint that costs money or calls Gemini, gate it too.
+- **Metered features use their own gate.** `scan-fridge` calls
+  `requireFeatureAccess(req, res, 'scan')`, `generate-recipes` uses `'recipe'`,
+  `live-token` (and `recipe-voice-bot`) uses `'voice'`. The gate allows an active
+  or unlocked trial; in preview it atomically increments that feature's Redis
+  counter (limit 2), sets `X-ColdScan-Preview-Remaining`, and on the third try
+  returns `402 { requiresEmailVerification: true, preview: true, feature }`.
+  Never meter a new feature without giving it its own counter and gate.
+- **Support routes use `requireSupportAccess`** (`tts`, `geocode`,
+  `nearby-stores`) and do not consume a featured try. Premium non-metered routes
+  (`ai-chat`, `generate-shopping-list`) use `requireActiveTrial`.
 - **Every client call to `/api/*` must go through `apiFetch`** (`src/utils/api.ts`)
-  so the session cookie is sent and a `402` locks the UI.
-- **No demo-data fallback on a 402.** If a call fails because the trial ended,
-  show the contact screen — never fake a successful result (see `ScanScreen.tsx`).
-- The identity cookie is `HttpOnly` + signed; the start time is written once with
-  `SET NX`; emails and device signals are stored only as HMACs.
+  so the session cookie is sent. A `402` becomes `EmailVerificationRequiredError`
+  (open the OTP sheet) when `requiresEmailVerification` is set, otherwise
+  `TrialExpiredError` (contact/access-code UI).
+- **No demo-data fallback on any 402.** If a call is refused, show the email sheet
+  or the contact screen — never fake a successful result (see `ScanScreen.tsx`).
+- The identity cookie is `HttpOnly` + signed; preview counters live in Redis and
+  are keyed by `accountId`, never by IP or browser storage. Refresh or clearing
+  storage cannot refill them; only a genuinely new account gets new previews.
+- **Verification is the only activation.** Preview records have
+  `activatedAt: null`; `linkVerifiedEmail()` sets `activatedAt = now` on the
+  first verification, which is what starts the 48 hours. Creating an account,
+  browsing, or `GET /api/trial` must never start the clock.
+- **Never shorten a running trial.** Records created before the preview model
+  have no `activatedAt`; `sanitizeRecord()` migrates them to
+  `activatedAt = startedAt`. Signing out or re-verifying must not reset it.
 - **Email bindings are only created after OTP verification.** `linkVerifiedEmail()`
   is called exclusively by `/api/auth` with the user id Supabase returned. There
   is no endpoint that binds an address typed by the browser; `link-email` on
   `/api/trial` now answers 410. Never add one back.
-- **Legacy bindings are untrusted.** Records created before this change have
-  `emailId` but no `emailVerifiedAt`; they are treated as unbound and are
-  revoked the first time the real owner verifies the address.
+- **Legacy bindings are untrusted.** Records with `emailId` but no
+  `emailVerifiedAt` are treated as unbound and are revoked the first time the
+  real owner verifies the address.
 - **Owner emails bypass the trial, but only when verified.** An account bound to
   the founder's address (`OWNER_EMAILS` in `api/_lib/trial.ts`) or to any address
   in `TRIAL_OWNER_EMAILS` is unlocked on every device only after `emailVerifiedAt`
   is set. Keep the list in `trial.ts`/env only; never on the client.
-- **Verification never touches the clock.** It cannot start, extend or reset the
-  48 hours, and a signed-out browser keeps its trial identity.
+- **Signing out** clears `coldscan_auth` only. It never restores preview tries,
+  resets the clock, or removes the verified email binding.
 
 ## Email authentication (Supabase OTP)
 
@@ -190,7 +210,7 @@ browser <- generic 200 "code sent"
 browser -> POST /api/auth { action: 'verify', email, token }
 server  -> Supabase POST /auth/v1/verify
 server  -> linkVerifiedEmail() + signed HttpOnly `coldscan_auth` cookie
-browser <- { verified: true, trial }         (status from the stored clock)
+browser <- { verified: true, trial }         (first verification starts the 48h clock)
 ```
 
 - **Server-only credentials.** `SUPABASE_URL` + `SUPABASE_ANON_KEY` are read in
@@ -212,7 +232,7 @@ browser <- { verified: true, trial }         (status from the stored clock)
   Site URL and redirect allow-list set. `/api/health` reports
   `auth.supabaseConfigured` as a boolean only.
 
-Verify changes with `npx tsx scripts/trial-selftest.ts` — 148 checks (74 per pass)
+Verify changes with `npx tsx scripts/trial-selftest.ts` — 236 checks (118 per pass)
 that run the whole suite twice, once on the in-memory fallback and once over the
 real Redis REST transport. Supabase calls are mocked, so no email is sent. Add
 `--real` to run pass 2 against the live Upstash database.

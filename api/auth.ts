@@ -12,9 +12,10 @@
  *     response is identical for known and unknown addresses (no enumeration).
  *   - `verify` is the ONLY place an email becomes trusted, and it happens only
  *     after Supabase confirms the one-time code for that exact address.
- *   - A successful verification sets a signed, HttpOnly session cookie. It does
- *     NOT start, extend or reset the 48-hour trial, and it does not unlock
- *     premium access on its own — `requireActiveTrial` remains the gate.
+ *   - A successful verification sets a signed, HttpOnly session cookie. The
+ *     FIRST verification of a preview account starts its 48-hour clock; later
+ *     verifications never reset or shorten it. Verification alone does not
+ *     unlock premium access — the feature gates remain authoritative.
  *   - Rate limits are fail-closed: if the limiter cannot be consulted, codes are
  *     not sent and codes are not verified.
  */
