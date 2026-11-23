@@ -2,6 +2,7 @@ import React from 'react';
 import { Sparkles, Clock, ShieldCheck, MailCheck } from 'lucide-react';
 import { LanguageType } from '../types';
 import { t } from '../utils/i18n';
+import type { PreviewUses } from '../utils/trial';
 
 interface TrialBannerProps {
   /** Pre-formatted countdown from the server-anchored clock, e.g. "1d 4h". */
@@ -9,10 +10,16 @@ interface TrialBannerProps {
   /** Milliseconds left, used only to decide how urgent the styling is. */
   msLeft: number;
   unlocked: boolean;
+  /** True while the visitor is in the anonymous free preview. */
+  preview: boolean;
+  /** Free tries left for scanning, recipes and the voice helper. */
+  previewRemaining: PreviewUses;
   /** True once an email has been verified and the trial survives any browser. */
   emailLinked: boolean;
   lang: LanguageType;
   onContact: () => void;
+  /** Opens the email sheet that unlocks the 48-hour trial. */
+  onUnlock: () => void;
 }
 
 const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
@@ -28,15 +35,38 @@ export const TrialBanner: React.FC<TrialBannerProps> = ({
   timeLeftLabel,
   msLeft,
   unlocked,
+  preview,
+  previewRemaining,
   emailLinked,
   lang,
   onContact,
+  onUnlock,
 }) => {
   if (unlocked) {
     return (
       <div className="mb-3 flex items-center gap-2 rounded-2xl bg-mint px-4 py-2.5 text-xs font-bold text-pine ring-1 ring-cold/25">
         <ShieldCheck className="h-4 w-4 shrink-0 text-cold-dark" strokeWidth={2.5} />
         {t('trialFullAccess', lang)}
+      </div>
+    );
+  }
+
+  if (preview) {
+    return (
+      <div className="mb-3 flex items-center gap-2 rounded-2xl bg-mint px-4 py-2.5 text-xs font-bold text-pine ring-1 ring-cold/25">
+        <Sparkles className="h-4 w-4 shrink-0 text-cold-dark" strokeWidth={2.5} />
+        <span className="flex-1 min-w-0 truncate">
+          {t('previewBanner', lang)
+            .replace('__scan__', String(previewRemaining.scan))
+            .replace('__recipe__', String(previewRemaining.recipe))
+            .replace('__voice__', String(previewRemaining.voice))}
+        </span>
+        <button
+          onClick={onUnlock}
+          className="shrink-0 rounded-full bg-pine px-3 py-1 text-[11px] font-extrabold text-cold transition-colors hover:bg-pine-light"
+        >
+          {t('previewUnlock', lang)}
+        </button>
       </div>
     );
   }

@@ -97,12 +97,12 @@ export function useTrial(): UseTrial {
 
   // When the local countdown crosses zero, confirm with the server right away
   // rather than waiting for the next poll.
-  const expiredLocally = loaded && !status.unlocked && msLeft <= 0;
+  const expiredLocally = loaded && !status.unlocked && !status.preview && msLeft <= 0;
   useEffect(() => {
     if (expiredLocally && !status.expired) void refresh();
   }, [expiredLocally, status.expired, refresh]);
 
-  const locked = loaded && !status.unlocked && (status.expired || msLeft <= 0);
+  const locked = loaded && !status.unlocked && !status.preview && (status.expired || msLeft <= 0);
 
   const redeemCode = useCallback(
     async (code: string) => {

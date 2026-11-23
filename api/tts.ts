@@ -1,7 +1,7 @@
 import { Modality } from '@google/genai';
 import { TTS_MODEL, TTS_TONE_PROMPTS, getGenAI } from './_lib/genai.js';
 import { ApiRequest, ApiResponse, fail, methodGuard, readBody } from './_lib/http.js';
-import { requireActiveTrial } from './_lib/trial.js';
+import { requireSupportAccess } from './_lib/trial.js';
 
 /** Wraps raw PCM (as returned by Gemini TTS) in a RIFF/WAV header for <audio>. */
 function pcmToWav(pcmBase64: string, sampleRate = 24000): string {
@@ -36,7 +36,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
 
   // Server-side trial gate: refuses the work once the 48 hours are up,
   // regardless of anything the client claims.
-  if (!(await requireActiveTrial(req, res))) return;
+  if (!(await requireSupportAccess(req, res))) return;
 
   try {
     const { text, voice = 'Zephyr', language = 'en' } = readBody(req);

@@ -20,6 +20,7 @@ import {
   rateLimit,
   redeemCode,
   resolveTrial,
+  statusFor,
   toStatus,
   type TrialSession,
 } from './_lib/trial.js';
@@ -86,7 +87,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
 
       case 'tutorial-seen': {
         const record = await markTutorialSeen(session);
-        return res.status(200).json({ success: true, trial: toStatus(record) });
+        return res.status(200).json({ success: true, trial: await statusFor(record) });
       }
 
       default:

@@ -43,16 +43,37 @@ import { isSupabaseUserId } from './authCookie.js';
 export const TRIAL_HOURS = 48;
 export const TRIAL_MS = TRIAL_HOURS * 60 * 60 * 1000;
 
+/**
+ * Features that can be tried a couple of times before an email is required.
+ * Each one has its OWN counter, so a visitor gets two scans, two recipe
+ * generations and two voice-helper connections.
+ */
+export type PreviewFeature = 'scan' | 'recipe' | 'voice';
+export const PREVIEW_FEATURES: PreviewFeature[] = ['scan', 'recipe', 'voice'];
+export const PREVIEW_LIMIT = 2;
+
+export interface PreviewUses {
+  scan: number;
+  recipe: number;
+  voice: number;
+}
+
+export const ZERO_PREVIEW_USES: PreviewUses = { scan: 0, recipe: 0, voice: 0 };
+
 const COOKIE_NAME = 'coldscan_sid';
 /** Cookie outlives the trial by a wide margin so it keeps identifying the account. */
 const COOKIE_MAX_AGE_SECONDS = 400 * 24 * 60 * 60;
 /** Trial records are kept well past expiry — deleting them would hand out a new trial. */
 const RECORD_TTL_SECONDS = 400 * 24 * 60 * 60;
+/** Preview counters live as long as the account, so a cleared cookie cannot refill them. */
+const PREVIEW_TTL_SECONDS = RECORD_TTL_SECONDS;
 
 const KEY_ACCOUNT = (id: string) => `coldscan:trial:account:${id}`;
 const KEY_DEVICE = (fingerprint: string) => `coldscan:trial:device:${fingerprint}`;
 const KEY_EMAIL = (emailId: string) => `coldscan:trial:email:${emailId}`;
 const KEY_RATE = (bucket: string) => `coldscan:trial:rate:${bucket}`;
+const KEY_PREVIEW = (feature: PreviewFeature, accountId: string) =>
+  KEY_RATE(`preview:${feature}:${accountId}`);
 
 /* ------------------------------------------------------------------ *
  * Types
@@ -61,8 +82,26 @@ const KEY_RATE = (bucket: string) => `coldscan:trial:rate:${bucket}`;
 export interface TrialRecord {
   /** Account id this trial belongs to. */
   accountId: string;
-  /** Server timestamp (ms) when the trial clock started. Written exactly once. */
+  /**
+   * Server timestamp (ms) when the account was created (or, for records made by
+   * the old flow, when the 48-hour clock started). Kept for audit and for the
+   * legacy migration; the live clock now runs from `activatedAt`.
+   */
   startedAt: number;
+  /**
+   * Server timestamp (ms) when the 48-hour trial was activated by a verified
+   * email, or null while the account is still in anonymous preview mode.
+   *
+   * Records created before the preview flow existed have no `activatedAt`; they
+   * are migrated to `activatedAt = startedAt` and keep their original clock.
+   */
+  activatedAt: number | null;
+  /**
+   * True while this account is in the anonymous preview: no 48-hour clock and
+   * only the per-feature free tries. Flips to false the moment a trial starts
+   * or an access code unlocks the account.
+   */
+  preview: boolean;
   /** Extra milliseconds granted by an extension code. */
   extraMs: number;
   /** Permanent access granted by an unlock code. */
@@ -87,22 +126,30 @@ export interface TrialRecord {
 
 export interface TrialStatus {
   accountId: string;
-  /** ISO start time, from the server. */
+  /** ISO account-creation time, from the server. */
   startedAt: string;
-  /** ISO expiry, computed on the server. */
+  /** ISO time the 48-hour clock was activated, or null in preview. */
+  activatedAt: string | null;
+  /** ISO expiry, computed on the server. Empty string while in preview. */
   expiresAt: string;
-  /** Whole milliseconds left, server-computed. 0 when over. */
+  /** Whole milliseconds left, server-computed. 0 when over or in preview. */
   msRemaining: number;
   hoursRemaining: number;
   daysRemaining: number;
-  /** True while premium features are allowed. */
+  /** True while premium features are allowed (trial active or unlocked). */
   active: boolean;
   /** True once the 48 hours are up and no code has been redeemed. */
   expired: boolean;
+  /** True while the account is in the anonymous preview. */
+  preview: boolean;
   unlocked: boolean;
   /** True only when an email was proven with an OTP, not merely typed. */
   emailLinked: boolean;
   emailVerified: boolean;
+  /** Free tries used so far, per feature. */
+  previewUses: PreviewUses;
+  /** Free tries left, per feature (never negative). */
+  previewRemaining: PreviewUses;
   tutorialSeen: boolean;
   trialHours: number;
   /** Server time, so the client can count down without trusting its own clock. */
@@ -199,9 +246,28 @@ function sanitizeRecord(raw: string | null, accountId: string): TrialRecord | nu
   try {
     const parsed = JSON.parse(raw) as Partial<TrialRecord>;
     if (typeof parsed.startedAt !== 'number' || !Number.isFinite(parsed.startedAt)) return null;
+
+    // Migration rule:
+    //   - a record with `activatedAt` uses it;
+    //   - a record that explicitly says `preview: true` and has no activation
+    //     time is still in preview;
+    //   - every other record predates the preview flow, so its original
+    //     `startedAt` was the live trial clock. Treat it as activated, which
+    //     keeps existing users on exactly the clock they already had.
+    const hasActivation =
+      typeof parsed.activatedAt === 'number' && Number.isFinite(parsed.activatedAt);
+    const activatedAt = hasActivation
+      ? (parsed.activatedAt as number)
+      : parsed.preview === true
+        ? null
+        : parsed.startedAt;
+    const preview = parsed.preview === true && activatedAt === null;
+
     return {
       accountId,
       startedAt: parsed.startedAt,
+      activatedAt,
+      preview,
       extraMs: typeof parsed.extraMs === 'number' && parsed.extraMs > 0 ? parsed.extraMs : 0,
       unlocked: parsed.unlocked === true,
       emailId: typeof parsed.emailId === 'string' ? parsed.emailId : null,
@@ -246,7 +312,12 @@ async function ensureRecord(accountId: string): Promise<TrialRecord> {
   const now = Date.now();
   const fresh: TrialRecord = {
     accountId,
+    // Account creation is recorded, but it no longer starts the trial clock.
+    // New accounts begin in preview mode; the 48 hours start on the first
+    // successful email verification (see linkVerifiedEmail).
     startedAt: now,
+    activatedAt: null,
+    preview: true,
     extraMs: 0,
     unlocked: false,
     emailId: null,
@@ -272,31 +343,94 @@ async function ensureRecord(accountId: string): Promise<TrialRecord> {
  * Status computation (server clock only)
  * ------------------------------------------------------------------ */
 
-export function toStatus(record: TrialRecord, now = Date.now()): TrialStatus {
+export function toStatus(
+  record: TrialRecord,
+  now = Date.now(),
+  previewUses: PreviewUses = ZERO_PREVIEW_USES
+): TrialStatus {
   // An owner email is equivalent to a redeemed unlock code: full access — but
   // only once that address has been proven with an OTP (see isOwnerAccount).
   const unlocked = record.unlocked || isOwnerAccount(record);
   const emailVerified = Boolean(record.emailId && record.emailVerifiedAt);
-  const endsAt = record.startedAt + TRIAL_MS + record.extraMs;
-  const msRemaining = unlocked ? Number.POSITIVE_INFINITY : Math.max(0, endsAt - now);
-  const finite = Number.isFinite(msRemaining) ? msRemaining : 0;
+
+  // Preview means: not unlocked, no activation time, still flagged as preview.
+  // It deliberately has no deadline — the per-feature counters are the limit.
+  const preview = record.preview && record.activatedAt === null && !unlocked;
+
+  // Legacy records have activatedAt == startedAt after sanitising, so their
+  // original countdown is preserved exactly.
+  const activatedAt = record.activatedAt ?? record.startedAt;
+  const endsAt = activatedAt + TRIAL_MS + record.extraMs;
+  const finite = Math.max(0, endsAt - now);
+
+  const clamp = (used: number) => Math.max(0, PREVIEW_LIMIT - (Number.isFinite(used) ? used : 0));
 
   return {
     accountId: record.accountId,
     startedAt: new Date(record.startedAt).toISOString(),
-    expiresAt: new Date(endsAt).toISOString(),
-    msRemaining: unlocked ? 0 : finite,
-    hoursRemaining: unlocked ? 0 : Math.ceil(finite / (60 * 60 * 1000)),
-    daysRemaining: unlocked ? 0 : Math.ceil(finite / (24 * 60 * 60 * 1000)),
-    active: unlocked || finite > 0,
-    expired: !unlocked && finite <= 0,
+    activatedAt: record.activatedAt === null ? null : new Date(record.activatedAt).toISOString(),
+    expiresAt: preview ? '' : new Date(endsAt).toISOString(),
+    msRemaining: unlocked || preview ? 0 : finite,
+    hoursRemaining: unlocked || preview ? 0 : Math.ceil(finite / (60 * 60 * 1000)),
+    daysRemaining: unlocked || preview ? 0 : Math.ceil(finite / (24 * 60 * 60 * 1000)),
+    active: unlocked || (!preview && finite > 0),
+    expired: !unlocked && !preview && finite <= 0,
+    preview,
     unlocked,
     emailLinked: emailVerified,
     emailVerified,
+    previewUses: {
+      scan: Math.max(0, previewUses.scan),
+      recipe: Math.max(0, previewUses.recipe),
+      voice: Math.max(0, previewUses.voice),
+    },
+    previewRemaining: {
+      scan: clamp(previewUses.scan),
+      recipe: clamp(previewUses.recipe),
+      voice: clamp(previewUses.voice),
+    },
     tutorialSeen: record.tutorialSeen,
     trialHours: TRIAL_HOURS,
     serverTime: new Date(now).toISOString(),
   };
+}
+
+/* ------------------------------------------------------------------ *
+ * Preview counters
+ * ------------------------------------------------------------------ */
+
+/**
+ * Reads the per-feature preview counters WITHOUT incrementing them.
+ *
+ * The counters are the same Redis keys the atomic limiter increments, so the
+ * number shown in the UI is the number the gate enforces. Three small reads
+ * only happen for accounts that are actually in preview.
+ */
+export async function previewUsesFor(accountId: string): Promise<PreviewUses> {
+  const read = async (feature: PreviewFeature): Promise<number> => {
+    try {
+      const raw = await kvGet(KEY_PREVIEW(feature, accountId));
+      const value = Number(raw ?? 0);
+      return Number.isFinite(value) && value > 0 ? Math.floor(value) : 0;
+    } catch {
+      // Status is presentation; the gate still fails closed if the store is
+      // unavailable. Reporting zero used is the conservative display value.
+      return 0;
+    }
+  };
+
+  const [scan, recipe, voice] = await Promise.all([
+    read('scan'),
+    read('recipe'),
+    read('voice'),
+  ]);
+  return { scan, recipe, voice };
+}
+
+/** Fresh status, including the preview counters. */
+export async function statusFor(record: TrialRecord, now = Date.now()): Promise<TrialStatus> {
+  const uses = record.preview ? await previewUsesFor(record.accountId) : ZERO_PREVIEW_USES;
+  return toStatus(record, now, uses);
 }
 
 /* ------------------------------------------------------------------ *
@@ -344,7 +478,11 @@ export async function resolveTrial(req: ApiRequest, res: ApiResponse): Promise<T
 
   setSessionCookie(req, res, accountId);
 
-  return { record, status: toStatus(record), accountId };
+  const previewUses = record.preview
+    ? await previewUsesFor(record.accountId)
+    : ZERO_PREVIEW_USES;
+
+  return { record, status: toStatus(record, Date.now(), previewUses), accountId };
 }
 
 /* ------------------------------------------------------------------ *
@@ -378,7 +516,12 @@ export type LinkVerifiedEmailResult =
  * never reach it directly, so typing an address still grants nothing.
  *
  * Rules that keep the trial intact:
- *   - Never touches `startedAt`, `extraMs` or `unlocked`.
+ *   - Never touches `extraMs` or `unlocked`.
+ *   - A NEW preview account starts its 48-hour clock at this exact moment.
+ *     Visiting the app (or using free preview tries) does not consume trial
+ *     time before verification.
+ *   - A legacy account whose clock already started keeps its original
+ *     `activatedAt`, so verification can never hand out a fresh 48 hours.
  *   - If the address already belongs to an account that was itself verified,
  *     adopt that ORIGINAL account so a new device resumes the old clock.
  *   - If the existing binding was never verified (the old, unauthenticated
@@ -386,8 +529,8 @@ export type LinkVerifiedEmailResult =
  *     This is what stops email squatting: an attacker who typed the founder's
  *     address before verification existed does not keep owner access, and the
  *     verified browser is not silently pointed at the attacker's account.
- *     The earlier start time is carried over so the repair cannot reset a
- *     legitimate trial.
+ *     A legacy clock is carried over so the repair cannot reset a legitimate
+ *     trial; a preview-only account has no clock to carry.
  *
  * The raw email is never stored: only `HMAC(TRIAL_SECRET, email)`.
  */
@@ -407,14 +550,23 @@ export async function linkVerifiedEmail(
   const existingAccountId = await kvGet(KEY_EMAIL(emailId));
   /** The account that proves control keeps the OLDEST clock it can be shown. */
   let startedAt = session.record.startedAt;
+  /** null means this account is still in preview and may start its clock now. */
+  let activatedAt = session.record.activatedAt;
 
   if (existingAccountId && existingAccountId !== session.accountId) {
     const existing = await readRecord(existingAccountId);
 
     // A verified binding is the real owner returning: adopt the older account
-    // so its start time (and any owner entitlement) is the one that counts.
+    // so its clock (and any owner entitlement) is the one that counts.
     if (existing && existing.emailId === emailId && existing.emailVerifiedAt) {
-      const adopted: TrialRecord = { ...existing, authUserId };
+      const adopted: TrialRecord = {
+        ...existing,
+        authUserId,
+        // Defensive: a verified record should already be activated, but a
+        // preview record can never be adopted into a fresh trial by accident.
+        preview: false,
+        activatedAt: existing.activatedAt ?? now,
+      };
       await writeRecord(adopted);
       setSessionCookie(req, res, adopted.accountId);
       // This device now belongs to the adopted account, so a cleared cookie
@@ -428,13 +580,20 @@ export async function linkVerifiedEmail(
     // entitlement. Revoke it, then bind the address to the account that just
     // proved control.
     //
-    // Its START TIME, however, is still evidence: carrying the earlier clock
-    // over prevents this repair from becoming a one-time trial reset for people
-    // who used the old "type an email" flow. Grants (`extraMs`, `unlocked`) are
-    // NOT inherited — only the fact that the clock began earlier.
+    // A legacy clock, however, is still evidence: carrying the earlier
+    // activation over prevents this repair from becoming a one-time trial reset
+    // for people who used the old "type an email" flow. Grants (`extraMs`,
+    // `unlocked`) are NOT inherited — only the fact that the clock began
+    // earlier. A preview-only claim has no clock, so nothing is carried.
     if (existing && !existing.emailVerifiedAt) {
       if (Number.isFinite(existing.startedAt)) {
         startedAt = Math.min(startedAt, existing.startedAt);
+      }
+      if (!existing.preview && existing.activatedAt !== null) {
+        activatedAt =
+          activatedAt === null
+            ? existing.activatedAt
+            : Math.min(activatedAt, existing.activatedAt);
       }
       await writeRecord({
         ...existing,
@@ -445,9 +604,15 @@ export async function linkVerifiedEmail(
     }
   }
 
+  // First verification of a preview account starts the 48 hours NOW. Legacy
+  // accounts already have an activation time and keep it untouched.
+  if (activatedAt === null) activatedAt = now;
+
   const updated: TrialRecord = {
     ...session.record,
     startedAt,
+    activatedAt,
+    preview: false,
     emailId,
     emailVerifiedAt: now,
     authUserId,
@@ -585,19 +750,33 @@ export async function redeemCode(
   if (!grant) return { ok: false, reason: 'invalid_code' };
 
   if (grant.type === 'unlock') {
-    const updated: TrialRecord = { ...session.record, unlocked: true };
+    const now = Date.now();
+    const updated: TrialRecord = {
+      ...session.record,
+      unlocked: true,
+      preview: false,
+      // Unlock is permanent, but record when access began for completeness.
+      activatedAt: session.record.activatedAt ?? now,
+    };
     await writeRecord(updated);
     return { ok: true, record: updated, granted: 'unlock' };
   }
 
   // Extending an already-expired trial measures the extra time from now, so
-  // the user really gets the full grant. The original startedAt is preserved.
+  // the user really gets the full grant. Redeeming a code while still in
+  // preview starts the 48-hour clock at redemption, then adds the grant.
   const now = Date.now();
-  const currentEnd = session.record.startedAt + TRIAL_MS + session.record.extraMs;
+  const activatedAt = session.record.activatedAt ?? now;
+  const currentEnd = activatedAt + TRIAL_MS + session.record.extraMs;
   const base = Math.max(currentEnd, now);
-  const extraMs = base + grant.hours * 60 * 60 * 1000 - (session.record.startedAt + TRIAL_MS);
+  const extraMs = base + grant.hours * 60 * 60 * 1000 - (activatedAt + TRIAL_MS);
 
-  const updated: TrialRecord = { ...session.record, extraMs: Math.max(0, extraMs) };
+  const updated: TrialRecord = {
+    ...session.record,
+    activatedAt,
+    preview: false,
+    extraMs: Math.max(0, extraMs),
+  };
   await writeRecord(updated);
   return { ok: true, record: updated, granted: 'extend', hours: grant.hours };
 }
@@ -638,9 +817,130 @@ export async function rateLimit(
  * ------------------------------------------------------------------ */
 
 /**
- * Wrap a premium endpoint with this. Returns the session when access is
- * allowed; otherwise it has already written a 402 response and the handler
- * must return immediately.
+ * Resolves the account and refuses closed-loop failures. Shared by the gates.
+ */
+async function gateSession(req: ApiRequest, res: ApiResponse): Promise<TrialSession | null> {
+  try {
+    return await resolveTrial(req, res);
+  } catch (error) {
+    console.error('[trial] failed to resolve trial:', (error as any)?.message || error);
+    // Fail closed: if the gate cannot be evaluated, premium work is refused.
+    res.status(503).json({ error: 'Access could not be verified. Please try again shortly.' });
+    return null;
+  }
+}
+
+function denyTrialExpired(res: ApiResponse, session: TrialSession): null {
+  res.status(402).json({
+    error: 'Your ColdScan free trial has ended. Contact us to keep your access.',
+    trialExpired: true,
+    trial: session.status,
+  });
+  return null;
+}
+
+function denyPreviewNeedsEmail(
+  res: ApiResponse,
+  status: TrialStatus,
+  feature?: PreviewFeature
+): null {
+  res.status(402).json({
+    error: feature
+      ? 'You have used your free tries for this feature. Verify your email to unlock 48 hours.'
+      : 'Verify your email to unlock 48 hours of full access.',
+    requiresEmailVerification: true,
+    preview: true,
+    ...(feature ? { feature } : {}),
+    trial: status,
+  });
+  return null;
+}
+
+/**
+ * Gate for the three preview-metered features: scanning, recipes and the live
+ * voice helper. Each has its own counter, so a visitor gets two of EACH.
+ *
+ * The counter is incremented atomically with Redis INCR before the expensive
+ * work runs, so two simultaneous requests cannot both consume the last try.
+ * Once a trial is active (or the account is unlocked) the counters are ignored.
+ *
+ * Returns the session when allowed; otherwise it has already written a 402/429
+ * and the handler must return immediately.
+ */
+export async function requireFeatureAccess(
+  req: ApiRequest,
+  res: ApiResponse,
+  feature: PreviewFeature
+): Promise<TrialSession | null> {
+  const session = await gateSession(req, res);
+  if (!session) return null;
+
+  if (session.status.active) return session;
+
+  // A legacy account whose 48 hours are over is expired, not in preview. It
+  // must not get preview tries again by simply waiting past its deadline.
+  if (!session.status.preview) return denyTrialExpired(res, session);
+
+  const result = await rateLimit(
+    `preview:${feature}:${session.accountId}`,
+    PREVIEW_LIMIT,
+    PREVIEW_TTL_SECONDS,
+    { failClosed: true }
+  );
+
+  if (result.degraded) {
+    console.error('[trial] preview limiter unavailable; refusing the request');
+    res.status(503).json({ error: 'Access could not be verified. Please try again shortly.' });
+    return null;
+  }
+
+  const uses = await previewUsesFor(session.accountId);
+  const status = toStatus(session.record, Date.now(), uses);
+
+  if (!result.allowed) {
+    return denyPreviewNeedsEmail(res, status, feature);
+  }
+
+  // Let the browser show "1 free scan left" without another round-trip.
+  // Same-origin only, so no CORS exposure is needed.
+  res.setHeader('X-ColdScan-Preview-Feature', feature);
+  res.setHeader(
+    'X-ColdScan-Preview-Remaining',
+    String(Math.max(0, PREVIEW_LIMIT - Math.max(0, result.count)))
+  );
+
+  return { ...session, status };
+}
+
+/**
+ * Gate for cheap supporting endpoints (geocoding, nearby stores, TTS) that
+ * should keep working during the preview so the app does not feel broken.
+ * They do not consume a feature try, but they are rate limited per account.
+ */
+export async function requireSupportAccess(
+  req: ApiRequest,
+  res: ApiResponse
+): Promise<TrialSession | null> {
+  const session = await gateSession(req, res);
+  if (!session) return null;
+
+  if (session.status.active) return session;
+  if (!session.status.preview) return denyTrialExpired(res, session);
+
+  const support = await rateLimit(`preview-support:${session.accountId}`, 80, 24 * 60 * 60);
+  if (!support.allowed) {
+    res.status(429).json({ error: 'Too many requests. Please try again later.' });
+    return null;
+  }
+
+  return session;
+}
+
+/**
+ * Wrap a premium endpoint that is NOT part of the free preview (AI chat,
+ * shopping-list generation, etc.). Returns the session when access is allowed;
+ * otherwise it has already written a 402 response and the handler must return
+ * immediately.
  *
  * This is the real gate. The front-end lock screen is only presentation — the
  * server refuses the work regardless of what the client believes.
@@ -649,24 +949,12 @@ export async function requireActiveTrial(
   req: ApiRequest,
   res: ApiResponse
 ): Promise<TrialSession | null> {
-  let session: TrialSession;
-  try {
-    session = await resolveTrial(req, res);
-  } catch (error) {
-    console.error('[trial] failed to resolve trial:', (error as any)?.message || error);
-    // Fail closed: if the gate cannot be evaluated, premium work is refused.
-    res.status(503).json({ error: 'Access could not be verified. Please try again shortly.' });
-    return null;
-  }
+  const session = await gateSession(req, res);
+  if (!session) return null;
 
   if (session.status.active) return session;
-
-  res.status(402).json({
-    error: 'Your ColdScan free trial has ended. Contact us to keep your access.',
-    trialExpired: true,
-    trial: session.status,
-  });
-  return null;
+  if (session.status.preview) return denyPreviewNeedsEmail(res, session.status);
+  return denyTrialExpired(res, session);
 }
 
 export function storeConfigured(): boolean {

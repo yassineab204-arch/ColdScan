@@ -17,7 +17,11 @@ import { FoodItem, ScanResult, AppSettings, LanguageType } from '../../types';
 import { SAMPLE_FRIDGE_PHOTOS } from '../../data/mockData';
 import { t } from '../../utils/i18n';
 import { downscaleImage } from '../../utils/image';
-import { apiFetch, TrialExpiredError } from '../../utils/api';
+import {
+  apiFetch,
+  EmailVerificationRequiredError,
+  TrialExpiredError,
+} from '../../utils/api';
 
 interface ScanScreenProps {
   settings?: AppSettings;
@@ -142,9 +146,11 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({
     } catch (err: any) {
       console.error('Scan error:', err);
 
-      // Trial over: the server refused the scan. Never fall through to the demo
-      // data below — that would hand an expired user a fake "working" scan.
-      // App.tsx listens for the same event and swaps in the contact screen.
+      // The server refused the scan. Never fall through to the demo data below:
+      // that would hand a gated user a fake "working" scan. App.tsx listens for
+      // the matching event and either opens the email sheet (preview over) or
+      // shows the contact screen (trial over).
+      if (err instanceof EmailVerificationRequiredError) return;
       if (err instanceof TrialExpiredError) return;
 
       // Fallback mock scan if network error occurs

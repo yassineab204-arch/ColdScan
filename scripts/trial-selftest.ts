@@ -24,9 +24,13 @@ import {
   isOwnerAccount,
   isOwnerEmail,
   linkVerifiedEmail,
+  previewUsesFor,
   redeemCode,
   requireActiveTrial,
+  requireFeatureAccess,
+  requireSupportAccess,
   resolveTrial,
+  statusFor,
   toStatus,
   TRIAL_MS,
   type TrialRecord,
@@ -83,6 +87,9 @@ function mockRes(): ApiResponse & { captured: Captured } {
  * an account that does not exist in pass 2's store).
  */
 let passTag = 'p0';
+// Unique per run: the Redis-backed pass persists between runs, so fixed test
+// emails would otherwise adopt accounts (and clocks) from an earlier run.
+const RUN_ID = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
 
 function mockReq(opts: { cookie?: string; ip?: string; ua?: string } = {}): ApiRequest {
   return {
@@ -123,89 +130,264 @@ async function rewind(accountId: string, ms: number) {
   const key = `coldscan:trial:account:${accountId}`;
   const record = JSON.parse((await kvGet(key)) as string) as TrialRecord;
   record.startedAt -= ms;
+  if (typeof record.activatedAt === 'number') record.activatedAt -= ms;
   await kvSet(key, JSON.stringify(record));
 }
 
 /* ---------------- tests ---------------- */
 
 async function runSuite(label: string, tag: string) {
-  passTag = tag;
+  passTag = `${tag}-${RUN_ID}`;
   // Namespaced per pass (unique per run under --real), so the owner tests below
   // never collide with keys left by a previous run of the suite.
   process.env.TRIAL_OWNER_EMAILS = `owner-${passTag}@example.com`;
   console.log(`\n${'='.repeat(60)}\n  ${label}\n  store: ${storeBinding()}  persistent: ${isPersistentStore()}\n${'='.repeat(60)}`);
 
-  // 1 — first contact starts the clock and issues an HttpOnly cookie
-  console.log('1. First contact');
+  // 1 — first contact creates a PREVIEW account, not a running trial
+  console.log('1. First contact (preview)');
   const res1 = mockRes();
   const s1 = await resolveTrial(mockReq(), res1);
   const setCookie = String(res1.captured.headers['Set-Cookie']);
+  const cookie = cookieFrom(res1);
 
-  check('trial starts active', s1.status.active);
-  check('expiry is exactly 48h after start', s1.status.trialHours === 48);
+  check('first contact is a preview', s1.status.preview);
+  check('preview does not start the 48-hour clock', !s1.status.active && !s1.status.expired);
+  check('preview reports no expiry', s1.status.expiresAt === '');
+  check('account creation time is still recorded', Boolean(s1.status.startedAt));
   check(
-    'expiry is computed from the stored start time',
-    Date.parse(s1.status.expiresAt) - Date.parse(s1.status.startedAt) === TRIAL_MS
+    'each feature starts with two free tries',
+    s1.status.previewRemaining.scan === 2 &&
+      s1.status.previewRemaining.recipe === 2 &&
+      s1.status.previewRemaining.voice === 2
   );
   check('cookie is HttpOnly', setCookie.includes('HttpOnly'));
   check('cookie is SameSite=Lax', setCookie.includes('SameSite=Lax'));
 
-  const cookie = cookieFrom(res1);
-
-  // 2 — returning with the cookie resumes the same trial
+  // 2 — returning with the cookie resumes the same preview account
   console.log('\n2. Returning visit');
   const s2 = await resolveTrial(mockReq({ cookie }), mockRes());
   check('same account', s2.accountId === s1.accountId);
-  check('same start time', s2.status.startedAt === s1.status.startedAt);
+  check('still a preview', s2.status.preview);
+  check('account creation time unchanged', s2.status.startedAt === s1.status.startedAt);
 
-  // 3 — clearing browser storage must not restart the trial
-  console.log('\n3. Cleared browser storage (no cookie, same device)');
-  const s3 = await resolveTrial(mockReq(), mockRes());
-  check('device fingerprint re-links to the original account', s3.accountId === s1.accountId);
-  check('start time is unchanged', s3.status.startedAt === s1.status.startedAt);
+  // 3 — each feature is metered independently, server-side
+  console.log('\n3. Preview tries');
+  const scan1 = mockRes();
+  const scan1Session = await requireFeatureAccess(mockReq({ cookie }), scan1, 'scan');
+  check('first scan allowed', scan1Session !== null);
+  check('one scan left', scan1.captured.headers['X-ColdScan-Preview-Remaining'] === '1');
 
-  // 4 — forged / tampered cookies are rejected
-  console.log('\n4. Cookie tampering');
-  const forged = await resolveTrial(
-    mockReq({ cookie: 'coldscan_sid=attacker-chosen-account-id.deadbeef' }),
-    mockRes()
+  const scan2 = mockRes();
+  const scan2Session = await requireFeatureAccess(mockReq({ cookie }), scan2, 'scan');
+  check('second scan allowed', scan2Session !== null);
+  check('zero scans left', scan2.captured.headers['X-ColdScan-Preview-Remaining'] === '0');
+
+  const scan3 = mockRes();
+  check(
+    'third scan denied',
+    (await requireFeatureAccess(mockReq({ cookie }), scan3, 'scan')) === null
   );
-  check('bad signature is not honoured', forged.accountId !== 'attacker-chosen-account-id');
-  check('falls back to the real account for this device', forged.accountId === s1.accountId);
+  check('denied with 402', scan3.captured.statusCode === 402, `got ${scan3.captured.statusCode}`);
+  check(
+    'asks for email verification, not a trial purchase',
+    scan3.captured.body?.requiresEmailVerification === true
+  );
+  check('names the exhausted feature', scan3.captured.body?.feature === 'scan');
+  check(
+    'reports zero scans left in the status',
+    scan3.captured.body?.trial?.preview === true &&
+      scan3.captured.body?.trial?.previewRemaining?.scan === 0
+  );
 
-  // 5 — a genuinely different device does get its own trial
+  const recipe1 = mockRes();
+  check(
+    'recipes have their own two tries',
+    (await requireFeatureAccess(mockReq({ cookie }), recipe1, 'recipe')) !== null &&
+      recipe1.captured.headers['X-ColdScan-Preview-Remaining'] === '1'
+  );
+  check(
+    'voice has its own two tries',
+    (await previewUsesFor(s1.accountId)).voice === 0
+  );
+
+  // 4 — clearing the cookie must not refill the counters
+  console.log('\n4. Cleared browser storage');
+  const cleared = await resolveTrial(mockReq(), mockRes());
+  check('device fingerprint re-links to the original account', cleared.accountId === s1.accountId);
+  check('used scans are still used', cleared.status.previewRemaining.scan === 0);
+  const scan4 = mockRes();
+  check(
+    'third scan still denied after clearing',
+    (await requireFeatureAccess(mockReq(), scan4, 'scan')) === null
+  );
+
+  // 5 — a genuinely different device gets its own preview
   console.log('\n5. Different device');
   const other = await resolveTrial(
     mockReq({ ip: '198.51.100.77', ua: 'Mozilla/5.0 (other device)' }),
     mockRes()
   );
   check('separate account', other.accountId !== s1.accountId);
+  check('fresh preview tries', other.status.previewRemaining.scan === 2);
+  const otherScan = mockRes();
+  check(
+    'new device can use its first scan',
+    (await requireFeatureAccess(
+      mockReq({ ip: '198.51.100.77', ua: 'Mozilla/5.0 (other device)' }),
+      otherScan,
+      'scan'
+    )) !== null
+  );
 
-  // 6 — expiry after 48 hours, computed server-side
-  console.log('\n6. After 48 hours');
+  // 6 — premium is gated behind email, support endpoints keep the preview usable
+  console.log('\n6. Gate behaviour');
+  const premium = mockRes();
+  check(
+    'premium endpoint denied in preview',
+    (await requireActiveTrial(mockReq({ cookie }), premium)) === null
+  );
+  check(
+    'premium 402 asks for email verification',
+    premium.captured.body?.requiresEmailVerification === true
+  );
+  check(
+    'premium 402 is not reported as trialExpired',
+    premium.captured.body?.trialExpired !== true
+  );
+
+  const scansBeforeSupport = (await previewUsesFor(s1.accountId)).scan;
+  const support = mockRes();
+  check(
+    'support endpoint allowed during preview',
+    (await requireSupportAccess(mockReq({ cookie }), support)) !== null
+  );
+  check(
+    'support does not consume a scan try',
+    (await previewUsesFor(s1.accountId)).scan === scansBeforeSupport
+  );
+
+  // 7 — records created before the preview flow keep their original clock
+  console.log('\n7. Legacy records (pre-preview)');
+  const legacyDevice = { ip: '192.0.2.10', ua: 'Mozilla/5.0 (legacy active)' };
+  const legacy = await resolveTrial(mockReq(legacyDevice), mockRes());
+  const legacyKey = `coldscan:trial:account:${legacy.accountId}`;
+  const legacyRaw = JSON.parse((await kvGet(legacyKey)) as string) as TrialRecord;
+  const legacyActive: any = {
+    ...legacyRaw,
+    startedAt: Date.now() - TRIAL_MS / 2,
+  };
+  delete legacyActive.activatedAt;
+  delete legacyActive.preview;
+  await kvSet(legacyKey, JSON.stringify(legacyActive));
+
+  const legacyAfter = await resolveTrial(mockReq(legacyDevice), mockRes());
+  check('legacy record is active', legacyAfter.status.active);
+  check('legacy record is not preview', !legacyAfter.status.preview);
+  check(
+    'legacy clock is preserved (about 24h left)',
+    Math.round(legacyAfter.status.msRemaining / 3_600_000) === 24,
+    `${Math.round(legacyAfter.status.msRemaining / 3_600_000)}h`
+  );
+
+  const expiredDevice = { ip: '192.0.2.11', ua: 'Mozilla/5.0 (legacy expired)' };
+  const legacyExpiredAccount = await resolveTrial(mockReq(expiredDevice), mockRes());
+  const legacyExpiredKey = `coldscan:trial:account:${legacyExpiredAccount.accountId}`;
+  const legacyExpiredRaw = JSON.parse((await kvGet(legacyExpiredKey)) as string) as TrialRecord;
+  const legacyExpired: any = {
+    ...legacyExpiredRaw,
+    startedAt: Date.now() - TRIAL_MS - 60_000,
+  };
+  delete legacyExpired.activatedAt;
+  delete legacyExpired.preview;
+  await kvSet(legacyExpiredKey, JSON.stringify(legacyExpired));
+
+  const legacyExpiredAfter = await resolveTrial(mockReq(expiredDevice), mockRes());
+  check('expired legacy record stays expired', legacyExpiredAfter.status.expired);
+  check('expired legacy record is not preview', !legacyExpiredAfter.status.preview);
+  const legacyGate = mockRes();
+  check(
+    'expired legacy feature call gets trialExpired',
+    (await requireFeatureAccess(mockReq(expiredDevice), legacyGate, 'scan')) === null &&
+      legacyGate.captured.body?.trialExpired === true
+  );
+
+  // 8 — verification is what starts the 48-hour clock
+  console.log('\n8. Email verification activates the 48h trial');
+  const beforeVerify = Date.now();
+  const linked = await linkVerifiedEmail(
+    mockReq({ cookie }),
+    mockRes(),
+    s1,
+    `user-${passTag}@example.com`,
+    AUTH_USER
+  );
+  check('verification linked the email', linked.ok);
+  check('account left preview', linked.ok && !linked.record.preview);
+  check('account has an activation time', linked.ok && linked.record.activatedAt !== null);
+  check(
+    'clock started at verification, not first visit',
+    linked.ok && (linked.record.activatedAt as number) >= beforeVerify
+  );
+  check(
+    'account creation was earlier than activation',
+    linked.ok && linked.record.startedAt <= (linked.record.activatedAt as number)
+  );
+
+  const activatedStatus = linked.ok ? toStatus(linked.record) : null;
+  check(
+    'trial runs for exactly 48h from activation',
+    Boolean(activatedStatus?.active) &&
+      Date.parse(activatedStatus!.expiresAt) - Date.parse(activatedStatus!.activatedAt!) === TRIAL_MS
+  );
+  check(
+    'preview usage did not reset on verification',
+    (await previewUsesFor(s1.accountId)).scan > 2
+  );
+  const postVerifyScan = mockRes();
+  check(
+    'active trial can scan',
+    (await requireFeatureAccess(mockReq({ cookie }), postVerifyScan, 'scan')) !== null
+  );
+  check(
+    'active scan does not touch the preview counter',
+    (await previewUsesFor(s1.accountId)).scan > 2
+  );
+
+  // 9 — expiry 48 hours after activation
+  console.log('\n9. After 48 hours');
   await rewind(s1.accountId, TRIAL_MS + 60_000);
   const expired = await resolveTrial(mockReq({ cookie }), mockRes());
   check('trial reports expired', expired.status.expired);
   check('trial is no longer active', !expired.status.active);
+  check('trial is not preview', !expired.status.preview);
   check('no time remaining', expired.status.msRemaining === 0);
 
-  // 7 — premium endpoints refuse the work
-  console.log('\n7. Premium gate');
+  const expiredFeature = mockRes();
+  check(
+    'feature call is refused',
+    (await requireFeatureAccess(mockReq({ cookie }), expiredFeature, 'scan')) === null
+  );
+  check(
+    'expired feature call is not offered preview tries',
+    expiredFeature.captured.body?.trialExpired === true &&
+      expiredFeature.captured.body?.requiresEmailVerification !== true
+  );
+
   const gateRes = mockRes();
   const allowed = await requireActiveTrial(mockReq({ cookie }), gateRes);
-  check('gate denies access', allowed === null);
+  check('premium gate denies access', allowed === null);
   check('responds 402', gateRes.captured.statusCode === 402, `got ${gateRes.captured.statusCode}`);
   check('flags trialExpired', gateRes.captured.body?.trialExpired === true);
 
-  // 8 — clearing storage after expiry still cannot buy more time
-  console.log('\n8. Clearing storage after expiry');
+  // 10 — clearing storage after expiry still cannot buy more time
+  console.log('\n10. Clearing storage after expiry');
   const afterClear = await resolveTrial(mockReq(), mockRes());
   check('still expired', afterClear.status.expired);
   const gate2 = mockRes();
   check('premium still denied', (await requireActiveTrial(mockReq(), gate2)) === null);
 
-  // 9 — access codes
-  console.log('\n9. Access codes');
+  // 11 — access codes
+  console.log('\n11. Access codes');
   const badCode = await redeemCode(mockReq({ cookie }), expired, 'NOT-A-REAL-CODE');
   check('unknown code rejected', !badCode.ok);
 
@@ -214,11 +396,10 @@ async function runSuite(label: string, tag: string) {
 
   const afterExtend = await resolveTrial(mockReq({ cookie }), mockRes());
   check('access restored by extension', afterExtend.status.active);
-  // The start time is never rewritten — extensions only add time on top of it.
   check(
-    'original start time preserved',
-    afterExtend.status.startedAt === expired.status.startedAt,
-    `${afterExtend.status.startedAt} vs ${expired.status.startedAt}`
+    'activation time preserved by extension',
+    afterExtend.status.activatedAt === expired.status.activatedAt,
+    `${afterExtend.status.activatedAt} vs ${expired.status.activatedAt}`
   );
   const grantedHours = Math.round(afterExtend.status.msRemaining / 3_600_000);
   check('roughly 24 hours granted', grantedHours === 24, `got ${grantedHours}h`);
@@ -228,28 +409,43 @@ async function runSuite(label: string, tag: string) {
   const unlocked = await resolveTrial(mockReq({ cookie }), mockRes());
   check('permanent access', unlocked.status.unlocked && unlocked.status.active);
 
-  // 10 — email binding makes the trial portable and non-resettable
-  console.log('\n10. Email binding');
-  const fresh = await resolveTrial(
-    mockReq({ ip: '192.0.2.55', ua: 'Mozilla/5.0 (email test)' }),
-    mockRes()
+  // A code redeemed during preview starts the clock at redemption.
+  const codeDevice = { ip: '192.0.2.33', ua: 'Mozilla/5.0 (code preview)' };
+  const codePreview = await resolveTrial(mockReq(codeDevice), mockRes());
+  check('code test account starts in preview', codePreview.status.preview);
+  const codeExtend = await redeemCode(mockReq(codeDevice), codePreview, 'TEST-EXTEND');
+  check('extension code accepted in preview', codeExtend.ok && codeExtend.granted === 'extend');
+  const codeStatus = codeExtend.ok ? await statusFor(codeExtend.record) : null;
+  check(
+    'preview code grants 48h plus the extension',
+    Boolean(codeStatus?.active) && Math.round(codeStatus!.msRemaining / 3_600_000) === 72,
+    codeStatus ? `${Math.round(codeStatus.msRemaining / 3_600_000)}h` : 'no status'
   );
-  await linkVerifiedEmail(
-    mockReq({ ip: '192.0.2.55' }),
+
+  // 12 — email binding makes the trial portable and non-resettable
+  console.log('\n12. Email binding');
+  const freshDevice = { ip: '192.0.2.55', ua: 'Mozilla/5.0 (email test)' };
+  // Distinct from the address used in section 8: that account already exists.
+  const portableEmail = `portable-${passTag}@example.com`;
+  const fresh = await resolveTrial(mockReq(freshDevice), mockRes());
+  check('email test account starts in preview', fresh.status.preview);
+  const freshLink = await linkVerifiedEmail(
+    mockReq(freshDevice),
     mockRes(),
     fresh,
-    `user-${passTag}@example.com `,
+    `${portableEmail} `,
     AUTH_USER
   );
   await rewind(fresh.accountId, TRIAL_MS / 2);
 
-  // Brand new browser AND new device: normally a fresh trial...
+  // Brand new browser AND new device: normally a fresh preview...
   const strangerRes = mockRes();
   const stranger = await resolveTrial(
     mockReq({ ip: '192.0.2.99', ua: 'Mozilla/5.0 (brand new phone)' }),
     strangerRes
   );
   check('unrelated device starts fresh', stranger.accountId !== fresh.accountId);
+  check('unrelated device is in preview', stranger.status.preview);
 
   // ...until the same email is supplied, which re-adopts the original account.
   const relinkRes = mockRes();
@@ -257,7 +453,7 @@ async function runSuite(label: string, tag: string) {
     mockReq({ ip: '192.0.2.99', ua: 'Mozilla/5.0 (brand new phone)' }),
     relinkRes,
     stranger,
-    `USER-${passTag}@EXAMPLE.COM`,
+    portableEmail.toUpperCase(),
     AUTH_USER
   );
   check('email lookup is normalized', relinked.ok);
@@ -266,8 +462,10 @@ async function runSuite(label: string, tag: string) {
     relinked.ok && relinked.record.accountId === fresh.accountId
   );
   check(
-    'original clock is kept (about 24h used)',
-    relinked.ok && Math.round((Date.now() - relinked.record.startedAt) / 3_600_000) === 24
+    'original activation is kept (about 24h used)',
+    relinked.ok &&
+      relinked.record.activatedAt !== null &&
+      Math.round((Date.now() - relinked.record.activatedAt) / 3_600_000) === 24
   );
   check('session cookie re-pointed to the original account', cookieFrom(relinkRes).includes(fresh.accountId));
   check(
@@ -280,70 +478,67 @@ async function runSuite(label: string, tag: string) {
     mockReq(),
     mockRes(),
     fresh,
-    `user-${passTag}@example.com`,
+    portableEmail,
     'not-a-uuid'
   );
   check('invalid email rejected', !invalid.ok);
   check('invalid auth identity rejected', !invalidIdentity.ok);
 
-  // 11 — no raw personal data is stored
-  console.log('\n11. Data hygiene');
+  // 13 — no raw personal data is stored
+  console.log('\n13. Data hygiene');
   const stored = (await kvGet(`coldscan:trial:account:${fresh.accountId}`)) as string;
-  check('no raw email in the stored record', !stored.toLowerCase().includes(`user-${passTag}@example.com`));
+  check('no raw email in the stored record', !stored.toLowerCase().includes(portableEmail));
   check('no IP address in the stored record', !stored.includes('192.0.2.55'));
   check('no secret in the stored record', !stored.includes(process.env.TRIAL_SECRET!));
-
   check('store reports the expected backend', isPersistentStore() === (storeBinding() !== 'memory'));
 
-  // 12 — owner emails have full access, but ONLY after OTP verification
-  console.log('\n12. Owner email (verified only)');
+  // 14 — owner emails have full access, but ONLY after OTP verification
+  console.log('\n14. Owner email (verified only)');
   check('the founder address is recognised as owner', isOwnerEmail('yassineab2014@gmail.com'));
   check('an unknown address is not owner', !isOwnerEmail(`someone-${passTag}@example.com`));
 
   const ownerDevice = { ip: '198.51.100.200', ua: 'Mozilla/5.0 (owner test)' };
   const ownerStart = await resolveTrial(mockReq(ownerDevice), mockRes());
-  await rewind(ownerStart.accountId, TRIAL_MS + 60_000);
-  const ownerExpired = await resolveTrial(mockReq(ownerDevice), mockRes());
-  check('owner account still starts as an ordinary expiring trial', ownerExpired.status.expired);
+  check('owner account starts in preview, not an active trial', ownerStart.status.preview && !ownerStart.status.active);
+  check('owner preview is not expired', !ownerStart.status.expired);
 
   // A binding created by the old, unauthenticated flow must unlock NOTHING.
   const ownerEmailId = derivedId('email', `owner-${passTag}@example.com`);
-  const legacyDevice = { ip: '198.51.100.201', ua: 'Mozilla/5.0 (legacy owner binding)' };
-  const legacy = await resolveTrial(mockReq(legacyDevice), mockRes());
-  await rewind(legacy.accountId, TRIAL_MS + 60_000);
-  const legacyKey = `coldscan:trial:account:${legacy.accountId}`;
-  const legacyRaw = JSON.parse((await kvGet(legacyKey)) as string) as TrialRecord;
+  const legacyOwnerDevice = { ip: '198.51.100.201', ua: 'Mozilla/5.0 (legacy owner binding)' };
+  const legacyOwner = await resolveTrial(mockReq(legacyOwnerDevice), mockRes());
+  const legacyOwnerKey = `coldscan:trial:account:${legacyOwner.accountId}`;
+  const legacyOwnerRaw = JSON.parse((await kvGet(legacyOwnerKey)) as string) as TrialRecord;
   await kvSet(
-    legacyKey,
-    JSON.stringify({ ...legacyRaw, emailId: ownerEmailId, emailVerifiedAt: null })
+    legacyOwnerKey,
+    JSON.stringify({ ...legacyOwnerRaw, emailId: ownerEmailId, emailVerifiedAt: null })
   );
-  const legacyAfter = await resolveTrial(mockReq(legacyDevice), mockRes());
+  const legacyOwnerAfter = await resolveTrial(mockReq(legacyOwnerDevice), mockRes());
   check(
     'an unverified owner-email binding does not unlock access',
-    legacyAfter.status.expired && !legacyAfter.status.unlocked
+    legacyOwnerAfter.status.preview && !legacyOwnerAfter.status.unlocked
   );
   check(
     'an unverified binding is not reported as linked or verified',
-    !legacyAfter.status.emailLinked && !legacyAfter.status.emailVerified
+    !legacyOwnerAfter.status.emailLinked && !legacyOwnerAfter.status.emailVerified
   );
 
   const ownerLink = await linkVerifiedEmail(
     mockReq(ownerDevice),
     mockRes(),
-    ownerExpired,
+    ownerStart,
     `  OWNER-${passTag}@EXAMPLE.COM  `,
     AUTH_USER
   );
   check('owner email link accepted (case/whitespace normalised)', ownerLink.ok);
   check(
-    'verifying the owner email cancels the expiry',
+    'verifying the owner email grants permanent access',
     ownerLink.ok && toStatus(ownerLink.record).unlocked && toStatus(ownerLink.record).active
   );
 
   const ownerGateRes = mockRes();
   const ownerGate = await requireActiveTrial(mockReq(ownerDevice), ownerGateRes);
   check(
-    'premium gate admits the owner with an expired clock',
+    'premium gate admits the owner',
     ownerGate !== null && ownerGate.status.unlocked && ownerGate.status.active
   );
 
@@ -361,8 +556,8 @@ async function runSuite(label: string, tag: string) {
     phoneLink.ok && phoneLink.record.accountId === ownerStart.accountId && toStatus(phoneLink.record).unlocked
   );
 
-  // 12b — an unverified claim cannot be inherited (email squatting)
-  console.log('\n12b. Email squatting');
+  // 15 — an unverified claim cannot be inherited (email squatting)
+  console.log('\n15. Email squatting');
   const squatEmail = `squat-${passTag}@example.com`;
   const squatEmailId = derivedId('email', squatEmail);
 
@@ -370,15 +565,19 @@ async function runSuite(label: string, tag: string) {
   const attacker = await resolveTrial(mockReq(attackerDevice), mockRes());
   const attackerKey = `coldscan:trial:account:${attacker.accountId}`;
   const attackerRaw = JSON.parse((await kvGet(attackerKey)) as string) as TrialRecord;
+  const squatterActivatedAt = Date.now() - TRIAL_MS / 2;
   await kvSet(
     attackerKey,
-    JSON.stringify({ ...attackerRaw, emailId: squatEmailId, emailVerifiedAt: null })
+    JSON.stringify({
+      ...attackerRaw,
+      startedAt: squatterActivatedAt,
+      activatedAt: squatterActivatedAt,
+      preview: false,
+      emailId: squatEmailId,
+      emailVerifiedAt: null,
+    })
   );
   await kvSet(`coldscan:trial:email:${squatEmailId}`, attacker.accountId);
-
-  // The squatter's account has already burned half its clock.
-  await rewind(attacker.accountId, TRIAL_MS / 2);
-  const attackerRewound = JSON.parse((await kvGet(attackerKey)) as string) as TrialRecord;
 
   const victimDevice = { ip: '198.51.100.78', ua: 'Mozilla/5.0 (real address owner)' };
   const victim = await resolveTrial(mockReq(victimDevice), mockRes());
@@ -394,12 +593,13 @@ async function runSuite(label: string, tag: string) {
     victimLink.ok && victimLink.record.accountId === victim.accountId && !victimLink.adopted
   );
   check(
-    'verification carries over the older clock (no trial reset)',
-    victimLink.ok && victimLink.record.startedAt === attackerRewound.startedAt
+    'verification carries over the older activation (no trial reset)',
+    victimLink.ok && victimLink.record.activatedAt === squatterActivatedAt
   );
   check(
     'the verified account keeps roughly the remaining trial',
-    victimLink.ok && Math.round((Date.now() - victimLink.record.startedAt) / 3_600_000) === 24
+    victimLink.ok &&
+      Math.round((Date.now() - (victimLink.record.activatedAt as number)) / 3_600_000) === 24
   );
   check(
     'verification marks the binding as verified',
@@ -428,17 +628,18 @@ async function runSuite(label: string, tag: string) {
 
   const plebDevice = { ip: '203.0.113.88', ua: 'Mozilla/5.0 (non-owner)' };
   const pleb = await resolveTrial(mockReq(plebDevice), mockRes());
-  await rewind(pleb.accountId, TRIAL_MS + 60_000);
-  const plebExpired = await resolveTrial(mockReq(plebDevice), mockRes());
   const plebLink = await linkVerifiedEmail(
     mockReq(plebDevice),
     mockRes(),
-    plebExpired,
+    pleb,
     `someone-${passTag}@example.com`,
     AUTH_USER
   );
   const plebStatus = plebLink.ok ? toStatus(plebLink.record) : null;
-  check('a non-owner email never unlocks', plebStatus !== null && !plebStatus.unlocked && plebStatus.expired);
+  check(
+    'a non-owner email activates the trial but never unlocks it',
+    plebStatus !== null && !plebStatus.unlocked && plebStatus.active && !plebStatus.preview
+  );
 
   // 13 — the email session cookie is signed, scoped and tamper-proof
   console.log('\n13. Email session cookie');

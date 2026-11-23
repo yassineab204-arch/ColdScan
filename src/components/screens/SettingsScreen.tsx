@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { AppSettings, CuisineType, LanguageType } from '../../types';
 import { t } from '../../utils/i18n';
+import type { PreviewUses } from '../../utils/trial';
 import { CuisinePicker } from '../CuisinePicker';
 
 interface SettingsScreenProps {
@@ -31,12 +32,18 @@ interface SettingsScreenProps {
   trialUnlocked?: boolean;
   /** ISO expiry computed by the server. */
   trialExpiresAt?: string;
+  /** True while the visitor is in the anonymous free preview. */
+  trialPreview?: boolean;
+  /** Free tries left for scanning, recipes and the voice helper. */
+  previewRemaining?: PreviewUses;
   /** True once an email has been verified with a one-time code. */
   trialEmailLinked?: boolean;
   /** True when this browser has a live email session. */
   authAuthenticated?: boolean;
   /** Opens the email OTP sheet. Verification happens on the server. */
   onVerifyEmail?: () => void;
+  /** Opens the sheet that starts the 48-hour trial after verification. */
+  onUnlockTrial?: () => void;
   /** Ends this browser's email session; the trial is untouched. */
   onSignOut?: () => void;
   onReplayTutorial?: () => void;
@@ -73,14 +80,18 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   trialMsLeft = 0,
   trialUnlocked = false,
   trialExpiresAt = '',
+  trialPreview = false,
+  previewRemaining = { scan: 2, recipe: 2, voice: 2 },
   trialEmailLinked = false,
   authAuthenticated = false,
   onVerifyEmail,
+  onUnlockTrial,
   onSignOut,
   onReplayTutorial,
 }) => {
-  const trialEnded = !trialUnlocked && trialMsLeft <= 0;
-  const trialUrgent = !trialUnlocked && trialMsLeft > 0 && trialMsLeft <= 6 * 60 * 60 * 1000;
+  const trialEnded = !trialUnlocked && !trialPreview && trialMsLeft <= 0;
+  const trialUrgent =
+    !trialUnlocked && !trialPreview && trialMsLeft > 0 && trialMsLeft <= 6 * 60 * 60 * 1000;
 
   const expiresLabel = (() => {
     const parsed = Date.parse(trialExpiresAt);
@@ -315,7 +326,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
         <div
           className={`rounded-2xl px-4 py-3 text-xs font-black uppercase tracking-wider ${
-            trialUnlocked
+            trialUnlocked || trialPreview
               ? 'bg-mint text-pine'
               : trialEnded
                 ? 'bg-rose-50 text-rose-700'
@@ -326,13 +337,29 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         >
           {trialUnlocked
             ? t('trialFullAccess', lang)
-            : trialEnded
-              ? t('trialEndedTitle', lang)
-              : t('trialBannerTime', lang).replace('__time__', trialTimeLeftLabel)}
+            : trialPreview
+              ? t('previewBanner', lang)
+                  .replace('__scan__', String(previewRemaining.scan))
+                  .replace('__recipe__', String(previewRemaining.recipe))
+                  .replace('__voice__', String(previewRemaining.voice))
+              : trialEnded
+                ? t('trialEndedTitle', lang)
+                : t('trialBannerTime', lang).replace('__time__', trialTimeLeftLabel)}
         </div>
 
+        {trialPreview && onUnlockTrial && (
+          <button
+            type="button"
+            onClick={onUnlockTrial}
+            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-cold px-4 py-3 text-sm font-extrabold text-pine-deep shadow-[0_16px_36px_-16px_rgba(34,197,94,0.8)] transition-all hover:bg-cold/90 active:scale-[0.99]"
+          >
+            {t('previewUnlock', lang)}
+            <ArrowRight className="h-4 w-4" strokeWidth={2.6} />
+          </button>
+        )}
+
         {/* Server-computed expiry, so there is no ambiguity about the deadline. */}
-        {!trialUnlocked && expiresLabel && (
+        {!trialUnlocked && !trialPreview && expiresLabel && (
           <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
             {t('trialExpiresAt', lang).replace('__date__', expiresLabel)}
           </p>

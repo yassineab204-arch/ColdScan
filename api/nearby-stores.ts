@@ -1,5 +1,5 @@
 import { methodGuard, readBody, type ApiRequest, type ApiResponse } from './_lib/http.js';
-import { requireActiveTrial } from './_lib/trial.js';
+import { requireSupportAccess } from './_lib/trial.js';
 
 const OVERPASS_ENDPOINTS = [
   'https://overpass-api.de/api/interpreter',
@@ -45,7 +45,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
 
   // Server-side trial gate: refuses the work once the 48 hours are up,
   // regardless of anything the client claims.
-  if (!(await requireActiveTrial(req, res))) return;
+  if (!(await requireSupportAccess(req, res))) return;
 
   const body = readBody(req);
   const lat = numberInRange(body.lat, -90, 90);
