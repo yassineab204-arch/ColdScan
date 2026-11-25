@@ -1,9 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
-import { Camera, ChefHat, PiggyBank, Sparkles, ArrowRight, ArrowLeft, X, Check, UtensilsCrossed } from 'lucide-react';
+import { Camera, ChefHat, ShoppingBag, Mic, Sparkles, ArrowRight, ArrowLeft, X, UtensilsCrossed } from 'lucide-react';
 import { CuisineType, LanguageType } from '../types';
 import { t } from '../utils/i18n';
-import { TRIAL_HOURS } from '../utils/trial';
 import { CuisinePicker } from './CuisinePicker';
 
 interface WelcomeTutorialProps {
@@ -13,26 +12,26 @@ interface WelcomeTutorialProps {
   selectedCuisines?: CuisineType[];
   /** Toggles a cuisine in the user's persisted settings. */
   onToggleCuisine?: (cuisine: CuisineType) => void;
-  /** Called when the user finishes or skips — the trial clock is already running. */
+  /** Called when the user finishes or skips. */
   onFinish: () => void;
 }
 
 const ease = [0.22, 1, 0.36, 1] as const;
 
 const STEPS = [
-  { icon: Camera, titleKey: 'tourStep1Title', bodyKey: 'tourStep1Body', id: 'scan' },
+  { icon: Camera, titleKey: 'tourStep1Title', bodyKey: 'tourScanUpdated', id: 'scan' },
   { icon: ChefHat, titleKey: 'tourStep2Title', bodyKey: 'tourStep2Body', id: 'cook' },
   // Food-culture personalization: the pills write straight into settings, so
   // whatever the user picks here is already saved even if they skip ahead.
   { icon: UtensilsCrossed, titleKey: 'tourStepCuisineTitle', bodyKey: 'tourStepCuisineBody', id: 'cuisines' },
-  { icon: PiggyBank, titleKey: 'tourStep3Title', bodyKey: 'tourStep3Body', id: 'save' },
-  { icon: Sparkles, titleKey: 'tourStep4Title', bodyKey: 'tourStep4Body', id: 'trial' },
+  { icon: ShoppingBag, titleKey: 'tourShoppingTitle', bodyKey: 'tourShoppingBody', id: 'shopping' },
+  { icon: Mic, titleKey: 'tourVoiceTitle', bodyKey: 'tourVoiceBody', id: 'voice' },
+  { icon: Sparkles, titleKey: 'tourAccessTitle', bodyKey: 'tourStep4Body', id: 'trial' },
 ] as const;
 
 /**
- * Short first-open walkthrough: 4 cards covering Scan → Cook → Save, ending on
- * the 48-hour free trial. Shown once (persisted via the trial state) and
- * replayable from Settings.
+ * First-open walkthrough of the main features and free access. Shown once
+ * (persisted via the trial state) and replayable from Settings.
  */
 export const WelcomeTutorial: React.FC<WelcomeTutorialProps> = ({
   isOpen,
@@ -94,7 +93,7 @@ export const WelcomeTutorial: React.FC<WelcomeTutorialProps> = ({
         initial={reduce ? false : { opacity: 0, y: 40, scale: 0.98 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: 0.45, ease }}
-        className="relative w-full max-w-md rounded-t-3xl sm:rounded-3xl bg-white shadow-[0_40px_90px_-30px_rgba(11,61,46,0.55)] overflow-hidden"
+        className="relative w-full max-w-md rounded-t-3xl sm:rounded-3xl bg-white shadow-[0_40px_90px_-30px_rgba(11,61,46,0.55)] max-h-[95dvh] overflow-y-auto"
       >
         {/* Skip */}
         <button
@@ -141,12 +140,6 @@ export const WelcomeTutorial: React.FC<WelcomeTutorialProps> = ({
                 </div>
               )}
 
-              {isLast && (
-                <span className="mt-5 inline-flex items-center gap-2 rounded-full bg-cold/15 px-4 py-2 text-sm font-extrabold text-pine">
-                  <Check className="h-4 w-4" strokeWidth={3} />
-                  {t('trialDaysFree', lang).replace('__count__', String(TRIAL_HOURS))}
-                </span>
-              )}
             </motion.div>
           </AnimatePresence>
         </div>
@@ -181,7 +174,7 @@ export const WelcomeTutorial: React.FC<WelcomeTutorialProps> = ({
               onClick={() => (isLast ? onFinish() : setStep((s) => s + 1))}
               className="group inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-cold px-6 py-3.5 text-[15px] font-bold text-pine-deep shadow-[0_16px_40px_-14px_rgba(34,197,94,0.8)] transition-all hover:bg-cold/90 active:scale-[0.98]"
             >
-              {isLast ? t('tourStart', lang) : t('tourNext', lang)}
+              {isLast ? t('tourDone', lang) : t('tourNext', lang)}
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" strokeWidth={2.6} />
             </button>
           </div>

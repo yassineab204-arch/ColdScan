@@ -63,7 +63,7 @@ export const CostEstimateScreen: React.FC<CostEstimateScreenProps> = ({
   ];
 
   return (
-    <div className="space-y-4 pb-20 max-w-md mx-auto">
+    <div className="space-y-5 max-w-md mx-auto">
       
       {/* Top Cost & Savings Summary */}
       <div className="bg-white border border-slate-200 rounded-3xl p-4 sm:p-5 shadow-xs space-y-4">
