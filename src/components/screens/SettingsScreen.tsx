@@ -121,7 +121,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   const lang = (settings.language || 'en') as LanguageType;
 
   return (
-    <div className="space-y-4 pb-20 max-w-md mx-auto text-slate-800 text-sm">
+    <div className="space-y-5 max-w-md mx-auto text-slate-800 text-sm">
       
       {/* Page Title Card */}
       <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-xs">
@@ -366,7 +366,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         )}
 
         {/* Verified email = portable access. Verification happens via OTP only. */}
-        {!trialUnlocked && onVerifyEmail && (
+        {onVerifyEmail && (trialEmailLinked || (!trialUnlocked && !trialPreview)) && (
           trialEmailLinked ? (
             <div className="rounded-2xl bg-mint border border-cold/25 px-4 py-3 space-y-2">
               <div className="flex items-center gap-2 text-xs font-bold text-pine">
@@ -415,7 +415,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           )
         )}
 
-        {!trialUnlocked && (
+        {trialEnded && (
           <>
             <p className="text-xs text-slate-500 leading-relaxed font-medium">
               {t('trialEndedBody', lang).replace('__hours__', '48')}

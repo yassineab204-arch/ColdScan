@@ -438,11 +438,11 @@ export default function App() {
         className={`flex-1 w-full mx-auto overflow-x-hidden ${
           activeTab === 'home'
             ? ''
-            : 'max-w-6xl px-3 sm:px-4 py-4 pb-[calc(6rem+env(safe-area-inset-bottom))] bg-[#F4F8F5]'
+            : 'max-w-6xl px-4 sm:px-6 py-5 pb-[calc(6.5rem+env(safe-area-inset-bottom))] md:pb-8 bg-[#F4F8F5]'
         }`}
       >
         {/* Trial status strip (app screens only — the landing page has its own CTAs) */}
-        {activeTab !== 'home' && !showLockScreen && trial.loaded && (
+        {activeTab !== 'home' && activeTab !== 'settings' && !showLockScreen && trial.loaded && (
           <TrialBanner
             timeLeftLabel={trial.timeLeftLabel}
             msLeft={trial.msLeft}

@@ -91,7 +91,7 @@ export const ShoppingListScreen: React.FC<ShoppingListScreenProps> = ({
   };
 
   return (
-    <div className="space-y-4 pb-20 max-w-md mx-auto">
+    <div className="space-y-5 max-w-md mx-auto">
       
       {/* Toast popup */}
       {copiedToast && (

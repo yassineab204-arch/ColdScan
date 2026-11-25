@@ -55,7 +55,7 @@ export const TrialBanner: React.FC<TrialBannerProps> = ({
     return (
       <div className="mb-3 flex items-center gap-2 rounded-2xl bg-mint px-4 py-2.5 text-xs font-bold text-pine ring-1 ring-cold/25">
         <Sparkles className="h-4 w-4 shrink-0 text-cold-dark" strokeWidth={2.5} />
-        <span className="flex-1 min-w-0 truncate">
+        <span className="flex-1 min-w-0 leading-snug">
           {t('previewBanner', lang)
             .replace('__scan__', String(previewRemaining.scan))
             .replace('__recipe__', String(previewRemaining.recipe))
@@ -85,7 +85,7 @@ export const TrialBanner: React.FC<TrialBannerProps> = ({
       ) : (
         <Sparkles className="h-4 w-4 shrink-0 text-cold-dark" strokeWidth={2.5} />
       )}
-      <span className="flex-1 min-w-0 truncate">{label}</span>
+      <span className="flex-1 min-w-0 leading-snug">{label}</span>
 
       {emailLinked && (
         <MailCheck

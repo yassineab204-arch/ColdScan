@@ -41,7 +41,7 @@ export const Navigation: React.FC<NavigationProps> = ({
   if (!visible) return null;
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-ink/[0.07] px-1 sm:px-3 pt-1.5 pb-[calc(0.375rem+env(safe-area-inset-bottom))] shadow-[0_-12px_40px_-20px_rgba(11,61,46,0.25)]">
+    <nav aria-label="Main navigation" className="fixed bottom-[calc(0.5rem+env(safe-area-inset-bottom))] left-3 right-3 z-40 rounded-2xl bg-white/95 border border-ink/[0.07] px-1 pt-2 pb-1.5 shadow-[0_12px_40px_-12px_rgba(11,61,46,0.3)] backdrop-blur-xl md:hidden">
       {/* overflow-x-clip (not -auto): "auto" would coerce overflow-y to auto as
           well and slice the crown off the raised scan button (-top-3.5 vs the
           bar's pt-1.5). clip keeps any horizontal spill contained while letting
@@ -57,14 +57,16 @@ export const Navigation: React.FC<NavigationProps> = ({
               <button
                 key={tab.id}
                 onClick={() => onNavigate(tab.id)}
-                className="relative -top-3.5 sm:-top-4 flex min-w-0 flex-1 sm:flex-none flex-col items-center group transition-all duration-200 hover:-translate-y-1 px-1"
+                aria-label={tab.label}
+                aria-current={isActive ? 'page' : undefined}
+                className="relative -top-3 flex min-w-0 flex-1 sm:flex-none flex-col items-center group transition-all duration-200 hover:-translate-y-1 px-1"
               >
                 <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-cold text-pine-deep border-[3px] border-white shadow-[0_12px_30px_-10px_rgba(34,197,94,0.8)] flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-90 ${
                   isActive ? 'ring-4 ring-cold/25 bg-cold-dark text-white' : ''
                 }`}>
                   <Icon className="w-[18px] h-[18px] sm:w-5 sm:h-5 stroke-[2.5]" />
                 </div>
-                <span className={`text-[7.5px] sm:text-[9px] font-bold uppercase tracking-wide sm:tracking-widest whitespace-nowrap mt-1 transition-colors ${
+                <span className={`text-[9px] leading-tight font-bold text-center max-w-full break-words mt-1 transition-colors ${
                   isActive ? 'text-cold-dark' : 'text-ink/35 group-hover:text-cold-dark'
                 }`}>
                   {tab.label}
@@ -77,6 +79,8 @@ export const Navigation: React.FC<NavigationProps> = ({
             <button
               key={tab.id}
               onClick={() => onNavigate(tab.id)}
+              aria-label={tab.label}
+              aria-current={isActive ? 'page' : undefined}
               className={`relative min-w-0 flex flex-1 sm:flex-none flex-col items-center py-1 px-1 sm:px-2 transition-all duration-200 hover:scale-110 active:scale-90 ${
                 isActive ? 'text-cold-dark' : 'text-ink/30 hover:text-ink/60'
               }`}
@@ -89,7 +93,7 @@ export const Navigation: React.FC<NavigationProps> = ({
                   </span>
                 ) : null}
               </div>
-              <span className={`text-[7.5px] sm:text-[9px] font-bold uppercase tracking-wide sm:tracking-widest whitespace-nowrap mt-1 transition-colors ${
+              <span className={`text-[9px] leading-tight font-bold text-center max-w-full break-words mt-1 transition-colors ${
                 isActive ? 'text-cold-dark' : 'text-ink/35'
               }`}>
                 {tab.label}

@@ -63,7 +63,7 @@ export const InventoryScreen: React.FC<InventoryScreenProps> = ({
   };
 
   return (
-    <div className="space-y-5 pb-20 max-w-md mx-auto">
+    <div className="space-y-5 max-w-md mx-auto">
       
       {/* Page Title Card */}
       <div className="bg-white border border-slate-200 rounded-3xl p-4 sm:p-5 shadow-xs flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

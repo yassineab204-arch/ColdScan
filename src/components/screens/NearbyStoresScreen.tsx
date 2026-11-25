@@ -637,7 +637,7 @@ export const NearbyStoresScreen: React.FC<NearbyStoresScreenProps> = ({
   const isLoading = isLocating || status === 'searching';
 
   return (
-    <div className="space-y-4 pb-20 max-w-6xl mx-auto">
+    <div className="space-y-5 max-w-6xl mx-auto">
       {/* Header */}
       <div className="bg-white border border-slate-200 rounded-3xl p-4 sm:p-5 shadow-xs space-y-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">

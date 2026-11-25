@@ -67,7 +67,7 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <header
-      className={`sticky top-0 z-40 w-full transition-all duration-300 ${
+      className={`relative sm:sticky top-0 z-40 w-full transition-all duration-300 ${
         solid
           ? 'bg-white/85 backdrop-blur-xl border-b border-ink/[0.07] shadow-[0_8px_30px_-16px_rgba(11,61,46,0.18)]'
           : 'bg-transparent border-b border-transparent'
@@ -121,10 +121,10 @@ export const Header: React.FC<HeaderProps> = ({
           <div className="flex items-center gap-1 sm:gap-1.5">
             {/* Quick language toggle: EN / FR / Darija — always visible on
                 every screen size so the language button is one tap away.
-                The full 9-language picker stays in Settings. */}
+                On phones it is available in the menu; the full 9-language picker stays in Settings. */}
             {onSelectLanguage && (
               <div
-                className="flex items-center gap-0.5 rounded-full bg-ink/[0.04] p-0.5 ring-1 ring-ink/[0.08]"
+                className="hidden sm:flex items-center gap-0.5 rounded-full bg-ink/[0.04] p-0.5 ring-1 ring-ink/[0.08]"
                 role="group"
                 aria-label="Language"
               >
@@ -214,7 +214,7 @@ export const Header: React.FC<HeaderProps> = ({
               onClick={() => go('settings')}
               aria-label={t('settings', lang)}
               title={t('settings', lang)}
-              className={`xl:hidden inline-flex h-8 w-8 items-center justify-center rounded-lg ring-1 transition-colors ${
+              className={`xl:hidden inline-flex h-10 w-10 sm:h-8 sm:w-8 items-center justify-center rounded-lg ring-1 transition-colors ${
                 activeTab === 'settings'
                   ? 'bg-pine text-white ring-pine shadow-[0_8px_20px_-8px_rgba(11,61,46,0.45)]'
                   : 'bg-white/80 text-pine ring-ink/10 hover:bg-mint'
@@ -226,7 +226,7 @@ export const Header: React.FC<HeaderProps> = ({
             {/* Mobile hamburger — phones only (md and up use the pills) */}
             <button
               onClick={() => setMenuOpen((v) => !v)}
-              className="md:hidden flex h-8 w-8 items-center justify-center rounded-lg bg-white/80 ring-1 ring-ink/10 text-pine transition-colors hover:bg-mint"
+              className="md:hidden flex h-10 w-10 items-center justify-center rounded-lg bg-white/80 ring-1 ring-ink/10 text-pine transition-colors hover:bg-mint"
               aria-label={menuOpen ? 'Close menu' : 'Open menu'}
               aria-expanded={menuOpen}
             >
