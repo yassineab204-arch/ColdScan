@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   Settings, 
   DollarSign, 
@@ -13,7 +13,8 @@ import {
   Globe,
   LogOut,
   MailCheck,
-  ArrowRight
+  ArrowRight,
+  Video
 } from 'lucide-react';
 import { AppSettings, CuisineType, LanguageType } from '../../types';
 import { t } from '../../utils/i18n';
@@ -23,7 +24,7 @@ import { CuisinePicker } from '../CuisinePicker';
 interface SettingsScreenProps {
   settings: AppSettings;
   onUpdateSettings: (newSettings: Partial<AppSettings>) => void;
-  onResetData: () => void;
+  onResetData: () => boolean;
   /** Pre-formatted countdown from the server-anchored clock, e.g. "1d 4h". */
   trialTimeLeftLabel?: string;
   /** Milliseconds left in the trial (0 when it has ended). */
@@ -89,6 +90,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   onSignOut,
   onReplayTutorial,
 }) => {
+  const [resetState, setResetState] = useState<'idle' | 'confirm' | 'success' | 'error'>('idle');
   const trialEnded = !trialUnlocked && !trialPreview && trialMsLeft <= 0;
   const trialUrgent =
     !trialUnlocked && !trialPreview && trialMsLeft > 0 && trialMsLeft <= 6 * 60 * 60 * 1000;
@@ -208,6 +210,18 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             <option value={3}>{t('warn3Days', lang)}</option>
             <option value={5}>{t('warn5Days', lang)}</option>
           </select>
+        </div>
+
+        {/* Recipe video suggestions */}
+        <div className="space-y-2 pt-3 border-t border-slate-100">
+          <label className="flex items-start justify-between gap-3 cursor-pointer">
+            <span className="flex items-start gap-2 text-xs font-bold text-slate-700">
+              <Video className="w-4 h-4 text-cold-dark shrink-0" />
+              {t('automaticRecipeVideos', lang)}
+            </span>
+            <input type="checkbox" checked={settings.automaticRecipeVideos} onChange={(e) => onUpdateSettings({ automaticRecipeVideos: e.target.checked })} className="w-5 h-5 accent-cold shrink-0" />
+          </label>
+          <p className="text-xs text-slate-500 leading-relaxed">{t('automaticRecipeVideosHint', lang)}</p>
         </div>
 
         {/* Voice Assistant Preferences */}
@@ -456,13 +470,30 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         <p className="text-xs text-slate-500 leading-relaxed font-medium">
           {t('resetDataDescription', lang)}
         </p>
-        <button
-          onClick={onResetData}
-          className="w-full py-3 px-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 font-black text-xs uppercase tracking-widest hover:bg-rose-100 flex items-center justify-center gap-3"
-        >
-          <RotateCcw className="w-4 h-4" />
-          {t('resetDemoData', lang)}
-        </button>
+        {resetState === 'confirm' ? (
+          <div className="space-y-3" role="group" aria-labelledby="reset-confirmation">
+            <p id="reset-confirmation" className="text-xs font-bold text-rose-700">{t('resetConfirm', lang)}</p>
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setResetState('idle')} className="flex-1 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs font-bold text-slate-700">
+                {t('resetCancel', lang)}
+              </button>
+              <button type="button" onClick={() => setResetState(onResetData() ? 'success' : 'error')} className="flex-1 rounded-2xl bg-rose-700 px-4 py-3 text-xs font-bold text-white">
+                {t('resetConfirmButton', lang)}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setResetState('confirm')}
+            className="w-full py-3 px-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 font-black text-xs uppercase tracking-widest hover:bg-rose-100 flex items-center justify-center gap-3"
+          >
+            <RotateCcw className="w-4 h-4" />
+            {t('resetDemoData', lang)}
+          </button>
+        )}
+        {resetState === 'success' && <p role="status" className="text-xs font-bold text-pine">{t('resetSuccess', lang)}</p>}
+        {resetState === 'error' && <p role="alert" className="text-xs font-bold text-rose-700">{t('resetError', lang)}</p>}
       </div>
 
     </div>

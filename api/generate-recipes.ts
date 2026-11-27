@@ -3,9 +3,14 @@ import { TEXT_MODEL, getGenAI, languageMandate } from './_lib/genai.js';
 import { ApiRequest, ApiResponse, fail, methodGuard, readBody } from './_lib/http.js';
 import { requireFeatureAccess } from './_lib/trial.js';
 import { CuisineOption, findCuisineOption, sanitizeCuisines } from './_lib/cuisines.js';
+import recipeVideos from './_lib/recipeVideos.js';
 
 export default async function handler(req: ApiRequest, res: ApiResponse) {
   if (!methodGuard(req, res, 'POST')) return;
+
+  // Keep video search on the existing function to stay within Vercel Hobby limits.
+  // It has its own support gate and does not consume a recipe-generation try.
+  if (readBody(req).action === 'recipe-videos') return recipeVideos(req, res);
 
   // Server-side trial gate: refuses the work once the 48 hours are up,
   // regardless of anything the client claims.

@@ -286,6 +286,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   dietaryPreferences: ['Low Waste', 'Balanced'],
   favoriteCuisines: [],
   wasteAlertDays: 3,
+  automaticRecipeVideos: true,
   voiceOutputEnabled: true,
   voiceName: 'Zephyr',
   themeColor: 'emerald',

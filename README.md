@@ -14,6 +14,7 @@ trilingual (Darija / French / English) voice sous-chef powered by Gemini Live.
    | Name                      | Required | Set by                                          |
    | ------------------------- | -------- | ------------------------------------------------ |
    | `GEMINI_API_KEY`          | yes      | you                                               |
+   | `YOUTUBE_API_KEY`         | no       | you (YouTube Data API v3; recipe videos)          |
    | `TRIAL_SECRET`            | yes      | you (see below)                                   |
    | `UPSTASH_REDIS_REST_URL`  | yes      | **Upstash integration, automatically**            |
    | `UPSTASH_REDIS_REST_TOKEN`| yes      | **Upstash integration, automatically**            |
@@ -68,6 +69,17 @@ Check `https://<your-app>.vercel.app/api/health`:
 serverless instance falls back to its own in-memory copy, so the clock restarts
 unpredictably. Check both a production URL and a preview URL — they are
 configured independently.
+
+## Recipe video suggestions
+
+Enable YouTube Data API v3 in Google Cloud and add a server-side `YOUTUBE_API_KEY`
+to Vercel (and `.env` for local development). Restrict the key to YouTube Data
+API v3. Without it, recipe generation still works and video search shows an
+unavailable message. Searches use YouTube's search API and may consume quota;
+results are cached for 24 hours in the existing Redis/KV store (or process
+memory in local development) and on the user's device. Cached videos are links
+to YouTube, not downloads. The Settings toggle controls automatic searches for
+newly generated recipes; manual searches are always available.
 
 ## Local development
 
