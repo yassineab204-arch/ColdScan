@@ -83,6 +83,7 @@ export interface AppSettings {
   /** Cuisines the Chef AI should prioritize in generated recipes. */
   favoriteCuisines: CuisineType[];
   wasteAlertDays: number;
+  automaticRecipeVideos: boolean;
   voiceOutputEnabled: boolean;
   voiceName: string;
   themeColor: 'emerald' | 'green' | 'teal';

@@ -919,7 +919,8 @@ export async function requireFeatureAccess(
  */
 export async function requireSupportAccess(
   req: ApiRequest,
-  res: ApiResponse
+  res: ApiResponse,
+  options: { bucket?: string } = {}
 ): Promise<TrialSession | null> {
   const session = await gateSession(req, res);
   if (!session) return null;
@@ -927,7 +928,7 @@ export async function requireSupportAccess(
   if (session.status.active) return session;
   if (!session.status.preview) return denyTrialExpired(res, session);
 
-  const support = await rateLimit(`preview-support:${session.accountId}`, 80, 24 * 60 * 60);
+  const support = await rateLimit(`${options.bucket || 'preview-support'}:${session.accountId}`, 80, 24 * 60 * 60);
   if (!support.allowed) {
     res.status(429).json({ error: 'Too many requests. Please try again later.' });
     return null;

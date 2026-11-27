@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   Camera, 
   Upload, 
@@ -11,12 +11,15 @@ import {
   Play,
   ArrowRight,
   ShieldCheck,
-  Package
+  Package,
+  Edit3,
+  Trash2
 } from 'lucide-react';
 import { FoodItem, ScanResult, AppSettings, LanguageType } from '../../types';
 import { SAMPLE_FRIDGE_PHOTOS } from '../../data/mockData';
 import { t } from '../../utils/i18n';
 import { downscaleImage } from '../../utils/image';
+import { ItemModal } from '../ItemModal';
 import {
   apiFetch,
   EmailVerificationRequiredError,
@@ -40,10 +43,25 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isLiveCameraActive, setIsLiveCameraActive] = useState(false);
+  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
+  const [editingItem, setEditingItem] = useState<FoodItem | null>(null);
+  const mountedRef = useRef(true);
+  const cameraRequest = useRef(0);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; cameraRequest.current += 1; };
+  }, []);
+
+  useEffect(() => {
+    if (!cameraStream) return;
+    if (videoRef.current) videoRef.current.srcObject = cameraStream;
+    return () => cameraStream.getTracks().forEach((track) => track.stop());
+  }, [cameraStream]);
 
   // Handle Photo Upload
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -51,54 +69,68 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({
     if (file) {
       const reader = new FileReader();
       reader.onload = async (event) => {
-        const base64 = event.target?.result as string;
-        // Resize before it ever reaches state, so the upload stays well under
-        // the 4.5 MB serverless request body limit.
-        setSelectedImage(await downscaleImage(base64));
-        setScanResult(null);
-        setErrorMsg(null);
+        try {
+          const base64 = event.target?.result;
+          if (typeof base64 !== 'string') throw new Error('Invalid image');
+          setSelectedImage(await downscaleImage(base64));
+          setScanResult(null);
+          setErrorMsg(null);
+        } catch {
+          setErrorMsg(t('scanImageError', lang));
+        }
       };
+      reader.onerror = () => setErrorMsg(t('scanImageError', lang));
+      e.target.value = '';
       reader.readAsDataURL(file);
     }
   };
 
   // Start Web Camera Feed
   const startCamera = async () => {
+    const request = ++cameraRequest.current;
     try {
       setIsLiveCameraActive(true);
       setErrorMsg(null);
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment' },
+        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } },
       });
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
+      if (!mountedRef.current || request !== cameraRequest.current) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
       }
+      setCameraStream(stream);
     } catch (err) {
+      if (!mountedRef.current || request !== cameraRequest.current) return;
       console.error('Camera access error:', err);
       setIsLiveCameraActive(false);
-      setErrorMsg('Camera access was denied or not available. Try selecting a photo or sample image below.');
+      setErrorMsg(t('scanCameraError', lang));
     }
   };
 
   // Capture Frame from Web Camera
-  const captureFrame = () => {
+  const captureFrame = async () => {
     if (videoRef.current && canvasRef.current) {
       const video = videoRef.current;
       const canvas = canvasRef.current;
-      canvas.width = video.videoWidth || 640;
-      canvas.height = video.videoHeight || 480;
+      if (!video.videoWidth || !video.videoHeight) {
+        setErrorMsg(t('scanCameraNotReady', lang));
+        return;
+      }
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
       const ctx = canvas.getContext('2d');
       if (ctx) {
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-        downscaleImage(dataUrl).then(setSelectedImage);
-
-        // Stop camera stream
-        const stream = video.srcObject as MediaStream;
-        if (stream) {
-          stream.getTracks().forEach((track) => track.stop());
+        try {
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+          setSelectedImage(await downscaleImage(dataUrl));
+          setScanResult(null);
+          setErrorMsg(null);
+          setCameraStream(null);
+          setIsLiveCameraActive(false);
+        } catch {
+          setErrorMsg(t('scanImageError', lang));
         }
-        setIsLiveCameraActive(false);
       }
     }
   };
@@ -146,69 +178,8 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({
     } catch (err: any) {
       console.error('Scan error:', err);
 
-      // The server refused the scan. Never fall through to the demo data below:
-      // that would hand a gated user a fake "working" scan. App.tsx listens for
-      // the matching event and either opens the email sheet (preview over) or
-      // shows the contact screen (trial over).
-      if (err instanceof EmailVerificationRequiredError) return;
-      if (err instanceof TrialExpiredError) return;
-
-      // Fallback mock scan if network error occurs
-      setScanResult({
-        itemsFound: [
-          {
-            id: `scan-${Date.now()}-1`,
-            name: 'Organic Spinach',
-            category: 'Produce',
-            freshness: 'soon_to_expire',
-            daysRemaining: 1,
-            quantity: 1,
-            unit: 'bag',
-            locationInFridge: 'Crisper Drawer',
-            notes: 'Leaves wilting slightly, use in salad or frittata today',
-            addedAt: new Date().toISOString(),
-          },
-          {
-            id: `scan-${Date.now()}-2`,
-            name: 'Whole Milk',
-            category: 'Dairy & Eggs',
-            freshness: 'soon_to_expire',
-            daysRemaining: 2,
-            quantity: 1,
-            unit: 'carton',
-            locationInFridge: 'Top Shelf',
-            notes: 'Check sell-by date',
-            addedAt: new Date().toISOString(),
-          },
-          {
-            id: `scan-${Date.now()}-3`,
-            name: 'Cheddar Cheese Block',
-            category: 'Dairy & Eggs',
-            freshness: 'fresh',
-            daysRemaining: 10,
-            quantity: 1,
-            unit: 'block',
-            locationInFridge: 'Middle Shelf',
-            notes: 'Sealed tight',
-            addedAt: new Date().toISOString(),
-          },
-          {
-            id: `scan-${Date.now()}-4`,
-            name: 'Roma Tomatoes',
-            category: 'Produce',
-            freshness: 'soon_to_expire',
-            daysRemaining: 2,
-            quantity: 4,
-            unit: 'pcs',
-            locationInFridge: 'Crisper Drawer',
-            notes: 'Ripe and juicy',
-            addedAt: new Date().toISOString(),
-          },
-        ],
-        totalDetected: 4,
-        summaryNotes: lang === 'fr' ? 'ColdScan a détecté 4 aliments. 3 d\'entre eux approchent de la péremption et doivent être utilisés en priorité.' : lang === 'ar-MA' ? 'كولد سكان كشف 4 حوايج فالتلاجة. 3 حوايج قريب يساليو وخاصك تستعملهم هو اللول.' : lang === 'ar' ? 'اكتشف كولد سكان 4 عناصر. 3 منها قريبة من الانتهاء ويجب استخدامها أولاً.' : lang === 'es' ? 'ColdScan detectó 4 alimentos. 3 están por caducar y deben usarse primero.' : lang === 'de' ? 'ColdScan hat 4 Artikel erkannt. 3 laufen bald ab und sollten zuerst verwendet werden.' : lang === 'ja' ? 'ColdScanが4点を検出。3点は期限が近く優先使用がおすすめです。' : lang === 'it' ? 'ColdScan ha rilevato 4 alimenti. 3 sono in scadenza e vanno usati per primi.' : lang === 'pt' ? 'ColdScan detectou 4 itens. 3 estão a expirar e devem ser usados primeiro.' : 'ColdScan detected 4 items in your refrigerator. 3 items are close to expiry and should be prioritized.',
-        suggestedAction: lang === 'fr' ? 'Repas recommandé : Omelette aux Épinards & Cheddar ou Pâtes Crémeuses aux Tomates.' : lang === 'ar-MA' ? 'وجبة مقترحة: أومليت بالسبانخ والفرماج ولا باستا بالطماطم.' : lang === 'ar' ? 'وجبة مقترحة: أومليت السبانخ أو معكرونة بالطماطم.' : lang === 'es' ? 'Comida recomendada: Tortilla de Espinacas y Cheddar o Pasta Cremosa de Tomate.' : lang === 'de' ? 'Empfohlen: Spinat & Cheddar Omelett oder Cremige Tomatenpasta.' : lang === 'ja' ? 'おすすめ：一品はほうれん草とチェダーのオムレツ、またはクリーミートマトパスタ。' : lang === 'it' ? 'Pasto consigliato: Omelette con Spinaci e Cheddar o Pasta Cremosa al Pomodoro.' : lang === 'pt' ? 'Refeição recomendada: Omelete de Espinafre ou Massa Cremosa de Tomate.' : 'Recommended meal: Spinach & Cheddar Omelette or Creamy Tomato Pasta.',
-      });
+      if (err instanceof EmailVerificationRequiredError || err instanceof TrialExpiredError) return;
+      setErrorMsg(t('scanFailed', lang));
     } finally {
       setIsScanning(false);
     }
@@ -246,6 +217,8 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({
         </p>
       </div>
 
+      <p className="px-1 text-xs leading-relaxed text-slate-600">{t('scanPhotoTip', lang)}</p>
+
       {/* Camera / Image Container */}
       <div className="bg-pine-deep rounded-3xl overflow-hidden shadow-lg border-4 border-cold/30 min-h-[280px] relative flex flex-col items-center justify-center text-white p-3">
         {isLiveCameraActive ? (
@@ -254,7 +227,7 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({
               ref={videoRef}
               autoPlay
               playsInline
-              className="w-full h-64 object-cover rounded-2xl"
+              className="w-full h-64 object-contain rounded-2xl"
             />
             <div className="absolute bottom-3 flex items-center gap-3">
               <button
@@ -264,6 +237,9 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({
                 <Camera className="w-4 h-4" />
                 {t('capturePhoto', lang)}
               </button>
+              <button type="button" onClick={() => { cameraRequest.current += 1; setCameraStream(null); setIsLiveCameraActive(false); }} className="px-4 py-2.5 rounded-full bg-slate-800 text-white text-xs font-bold">
+                {t('close', lang)}
+              </button>
             </div>
           </div>
         ) : selectedImage ? (
@@ -271,10 +247,11 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({
             <img
               src={selectedImage}
               alt="Refrigerator Scan"
-              className="w-full h-64 object-cover rounded-2xl"
+              className="w-full h-64 object-contain rounded-2xl"
             />
             <button
-              onClick={() => setSelectedImage(null)}
+              onClick={() => { setSelectedImage(null); setScanResult(null); setErrorMsg(null); }}
+              disabled={isScanning}
               className="absolute top-2 right-2 p-2 rounded-full bg-slate-900/80 text-white font-black hover:bg-slate-900 transition-colors"
               title="Clear photo"
             >
@@ -353,6 +330,7 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({
               <button
                 key={sample.id}
                 onClick={() => handleSelectSample(sample)}
+                disabled={isScanning}
                 className="group p-2 bg-white border border-slate-200/80 rounded-2xl text-left hover:border-cold transition-all shadow-xs"
               >
                 <img
@@ -392,7 +370,8 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({
             "{scanResult.summaryNotes}"
           </p>
 
-          <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+          <p className="text-xs text-slate-600 leading-relaxed">{t('scanReviewHint', lang)}</p>
+          <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
             {scanResult.itemsFound.map((item, idx) => (
               <div
                 key={idx}
@@ -413,7 +392,11 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({
                   )}
                 </div>
 
-                <div className="shrink-0">
+                <div className="shrink-0 flex flex-col items-end gap-2">
+                  <div className="flex gap-2">
+                    <button type="button" onClick={() => setEditingItem(item)} aria-label={`${t('edit', lang)} ${item.name}`} className="p-2 rounded-xl bg-white border border-slate-200 text-pine"><Edit3 className="w-4 h-4" /></button>
+                    <button type="button" onClick={() => setScanResult((current) => current ? { ...current, itemsFound: current.itemsFound.filter((entry) => entry.id !== item.id) } : null)} aria-label={`${t('delete', lang)} ${item.name}`} className="p-2 rounded-xl bg-white border border-slate-200 text-rose-700"><Trash2 className="w-4 h-4" /></button>
+                  </div>
                   {item.freshness === 'soon_to_expire' && (
                     <span className="px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 font-bold text-[10px] border border-amber-200 flex items-center gap-1">
                       <AlertCircle className="w-3 h-3 text-amber-600" />
@@ -439,7 +422,8 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({
           <div className="pt-2 flex items-center gap-3">
             <button
               onClick={handleConfirmAndSave}
-              className="w-full py-3 px-4 rounded-2xl bg-cold text-pine-deep font-bold text-sm shadow-[0_14px_30px_-12px_rgba(34,197,94,0.7)] hover:bg-cold-dark hover:text-white transition-all flex items-center justify-center gap-2 active:scale-[0.98]"
+              disabled={scanResult.itemsFound.length === 0}
+              className="disabled:opacity-50 w-full py-3 px-4 rounded-2xl bg-cold text-pine-deep font-bold text-sm shadow-[0_14px_30px_-12px_rgba(34,197,94,0.7)] hover:bg-cold-dark hover:text-white transition-all flex items-center justify-center gap-2 active:scale-[0.98]"
             >
               <CheckCircle2 className="w-4 h-4" />
               <span>{t('confirmAndAdd', lang)}</span>
@@ -448,6 +432,16 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({
         </div>
       )}
 
+      {editingItem && (
+        <ItemModal
+          key={editingItem.id}
+          isOpen
+          initialItem={editingItem}
+          language={lang}
+          onClose={() => setEditingItem(null)}
+          onSave={(updated) => setScanResult((current) => current ? { ...current, itemsFound: current.itemsFound.map((item) => item.id === updated.id ? updated : item) } : null)}
+        />
+      )}
     </div>
   );
 };

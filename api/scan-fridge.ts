@@ -22,20 +22,17 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
 
     const langInstruction = languageMandate(
       language,
-      'all food item names, category, summaryNotes, and suggestedAction'
+      'food item names, units, notes, summaryNotes, and suggestedAction; keep category, freshness, and locationInFridge in the specified English values'
     );
 
-    const promptText = `You are ColdScan AI, an expert food waste reduction and smart refrigerator analyzer.
-Analyze the image of the refrigerator interior / food contents carefully.
+    const promptText = `You are ColdScan AI. Carefully inspect this photo of food or a refrigerator. Today is ${new Date().toISOString().slice(0, 10)} (UTC).
 ${langInstruction}
-1. Detect and list all food items visible.
-2. For each food item, identify its name, category (Produce, Dairy & Eggs, Proteins, Condiments & Sauces, Beverages, Bakery, Leftovers, Pantry & Other), quantity, unit, and location in fridge.
-3. Estimate freshness status strictly as one of: "fresh", "soon_to_expire", or "expired".
-   - "soon_to_expire": produce showing slight wilt/ripeness, open milk, prepared leftovers older than 2 days, berries, opened dips.
-   - "expired": visible mold, spoiled produce, outdated items.
-4. Estimate remaining fresh days before expiry (e.g. 1-2 days for soon to expire, 5-14 days for fresh).
-5. Provide a short summary and suggested waste-reduction action.
-Additional context from user: ${notes || 'None'}`;
+- Scan the entire image, including shelves and door, and list only foods or drinks actually visible. Never invent hidden contents, brands, opening dates, quantities or dates. If an item cannot be identified, use a cautious generic name or omit it. Return an empty list if no food is identifiable.
+- Count visible items only; group identical items where appropriate. If quantity cannot be determined, use 1 and mention the uncertainty in notes.
+- category must be exactly one of: Produce, Dairy & Eggs, Proteins, Condiments & Sauces, Beverages, Bakery, Leftovers, Pantry & Other. locationInFridge must be exactly one of Top Shelf, Middle Shelf, Bottom Shelf, Crisper Drawer, Door Shelf, Freezer; use an empty string if unclear.
+- A photo cannot reliably establish safety, age, or an expiry date. Never claim something is safe to eat or expired based only on an assumed age. Use expired only for clearly visible spoilage or a clearly readable past expiry date; use soon_to_expire only for visible deterioration or a clearly readable near date. Otherwise use fresh as a provisional tracking category, not a safety determination. daysRemaining is only a rough storage estimate, never a confirmed expiry; explain uncertainty in notes.
+- Return brief summaryNotes and suggestedAction, reminding users to check labels and food condition. Do not infer ingredients inside opaque packaging.
+Additional context supplied by user (not evidence unless supported by the image): ${typeof notes === 'string' ? notes.slice(0, 1000) : 'None'}`;
 
     const ai = getGenAI();
     const response = await ai.models.generateContent({
@@ -57,8 +54,8 @@ Additional context from user: ${notes || 'None'}`;
                 type: Type.OBJECT,
                 properties: {
                   name: { type: Type.STRING },
-                  category: { type: Type.STRING },
-                  freshness: { type: Type.STRING }, // 'fresh' | 'soon_to_expire' | 'expired'
+                  category: { type: Type.STRING, enum: ['Produce', 'Dairy & Eggs', 'Proteins', 'Condiments & Sauces', 'Beverages', 'Bakery', 'Leftovers', 'Pantry & Other'] },
+                  freshness: { type: Type.STRING, enum: ['fresh', 'soon_to_expire', 'expired'] },
                   daysRemaining: { type: Type.NUMBER },
                   quantity: { type: Type.NUMBER },
                   unit: { type: Type.STRING },
@@ -77,21 +74,23 @@ Additional context from user: ${notes || 'None'}`;
     });
 
     const resultJson = JSON.parse(response.text || '{}');
+    if (!Array.isArray(resultJson.itemsFound)) throw new Error('Invalid scan response');
+    const categories = ['Produce', 'Dairy & Eggs', 'Proteins', 'Condiments & Sauces', 'Beverages', 'Bakery', 'Leftovers', 'Pantry & Other'];
 
     return res.status(200).json({
       success: true,
       data: {
-        itemsFound: (resultJson.itemsFound || []).map((item: any, idx: number) => ({
+        itemsFound: resultJson.itemsFound.filter((item: any) => typeof item?.name === 'string' && item.name.trim()).map((item: any, idx: number) => ({
           id: `scan-${Date.now()}-${idx}`,
-          name: item.name,
-          category: item.category || 'Produce',
+          name: item.name.trim(),
+          category: categories.includes(item.category) ? item.category : 'Pantry & Other',
           freshness: ['fresh', 'soon_to_expire', 'expired'].includes(item.freshness)
             ? item.freshness
             : 'fresh',
-          daysRemaining: Number(item.daysRemaining) || 3,
-          quantity: Number(item.quantity) || 1,
+          daysRemaining: Number.isFinite(Number(item.daysRemaining)) && item.daysRemaining != null ? Math.max(0, Number(item.daysRemaining)) : 3,
+          quantity: Number.isFinite(Number(item.quantity)) && Number(item.quantity) > 0 ? Number(item.quantity) : 1,
           unit: item.unit || 'item',
-          locationInFridge: item.locationInFridge || 'Middle Shelf',
+          locationInFridge: item.locationInFridge || '',
           notes: item.notes || '',
           addedAt: new Date().toISOString(),
         })),

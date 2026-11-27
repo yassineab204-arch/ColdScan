@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { TabType, FoodItem, Recipe, ShoppingItem, AppSettings, CuisineType } from './types';
 import { 
   DEFAULT_SETTINGS 
@@ -31,6 +31,7 @@ import {
 } from './utils/api';
 import { useTrial } from './hooks/useTrial';
 import { useAuth } from './hooks/useAuth';
+import { useRecipeVideos } from './hooks/useRecipeVideos';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabType>('home');
@@ -88,6 +89,11 @@ export default function App() {
     return saved ? { ...DEFAULT_SETTINGS, ...JSON.parse(saved) } : DEFAULT_SETTINGS;
   });
 
+  // Ignore generation responses started before a data reset.
+  const dataVersion = useRef(0);
+  const videoSuggestions = useRecipeVideos();
+  const autoVideosRef = useRef(settings.automaticRecipeVideos);
+  autoVideosRef.current = settings.automaticRecipeVideos;
   const [isGeneratingRecipes, setIsGeneratingRecipes] = useState(false);
   const [isGeneratingList, setIsGeneratingList] = useState(false);
 
@@ -243,6 +249,7 @@ export default function App() {
 
   // Recipe generation
   const handleRefreshRecipes = async () => {
+    const version = dataVersion.current;
     setIsGeneratingRecipes(true);
     try {
       const res = await apiFetch('/api/generate-recipes', {
@@ -257,8 +264,11 @@ export default function App() {
       });
 
       const data = await res.json();
-      if (data.success && data.recipes?.length) {
+      if (version === dataVersion.current && data.success && data.recipes?.length) {
         setRecipes(data.recipes);
+        if (autoVideosRef.current) {
+          for (const recipe of data.recipes as Recipe[]) void videoSuggestions.search(recipe, settings.language || 'en');
+        }
       }
     } catch (err) {
       console.error('Error generating recipes:', err);
@@ -322,6 +332,7 @@ export default function App() {
 
   // Shopping list generation
   const handleGenerateSmartList = async () => {
+    const version = dataVersion.current;
     setIsGeneratingList(true);
     try {
       const res = await apiFetch('/api/generate-shopping-list', {
@@ -334,7 +345,7 @@ export default function App() {
         }),
       });
       const data = await res.json();
-      if (data.success && data.items?.length) {
+      if (version === dataVersion.current && data.success && data.items?.length) {
         setShoppingList(data.items);
       }
     } catch (err) {
@@ -400,15 +411,30 @@ export default function App() {
   };
 
   const handleResetData = () => {
-    if (confirm('Clear all of your ColdScan data? This cannot be undone.')) {
-      setInventory([]);
-      setRecipes([]);
-      setShoppingList([]);
-      setSettings(DEFAULT_SETTINGS);
-      // Clearing local demo data is safe: the trial lives on the server, keyed
-      // to the account in an HttpOnly cookie, so this cannot hand out a new one.
-      localStorage.clear();
+    // Write empty lists even if state was already empty, and leave preferences,
+    // unrelated storage, and the server-owned access/session untouched.
+    const keys = ['coldscan_inventory', 'coldscan_recipes', 'coldscan_shopping'];
+    const previous: (string | null)[] = [];
+    try {
+      for (const key of keys) previous.push(localStorage.getItem(key));
+      for (const key of keys) localStorage.setItem(key, '[]');
+    } catch {
+      // Best-effort rollback if storage fails partway through the reset.
+      if (previous.length === keys.length) {
+        keys.forEach((key, i) => {
+          try {
+            if (previous[i] === null) localStorage.removeItem(key);
+            else localStorage.setItem(key, previous[i]!);
+          } catch { /* Storage may no longer be writable. */ }
+        });
+      }
+      return false;
     }
+    dataVersion.current += 1;
+    setInventory([]);
+    setRecipes([]);
+    setShoppingList([]);
+    return true;
   };
 
   /** Opens an AI feature, or the contact screen when the trial is over. */
@@ -509,6 +535,8 @@ export default function App() {
             onAddMissingToShoppingList={handleAddMissingToShoppingList}
             onRefreshRecipes={handleRefreshRecipes}
             isGenerating={isGeneratingRecipes}
+            videoStates={videoSuggestions.states}
+            onFindVideos={videoSuggestions.search}
           />
         )}
 

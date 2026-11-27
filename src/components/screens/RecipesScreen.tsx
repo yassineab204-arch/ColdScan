@@ -13,12 +13,15 @@ import {
   Flame,
   ChefHat,
   Mic,
-  Volume2
+  Volume2,
+  PlayCircle,
+  ExternalLink
 } from 'lucide-react';
 import { Recipe, FoodItem, ShoppingItem, AppSettings, LanguageType } from '../../types';
 import { CookingWizardModal } from '../CookingWizardModal';
 import { LiveVoiceModal } from '../LiveVoiceModal';
 import { getCuisineMeta } from '../../data/cuisines';
+import { videoSearchKey, type VideoState } from '../../hooks/useRecipeVideos';
 import { t, getLocalizedRecipeName, getLocalizedRecipeDescription, getLocalizedRecipeInstructions, getLocalizedFoodItemName, getLocalizedCuisineName } from '../../utils/i18n';
 
 interface RecipesScreenProps {
@@ -28,6 +31,8 @@ interface RecipesScreenProps {
   onAddMissingToShoppingList: (items: string[], recipeName: string) => void;
   onRefreshRecipes: () => void;
   isGenerating: boolean;
+  videoStates: Record<string, VideoState>;
+  onFindVideos: (recipe: Recipe, language: LanguageType) => void;
 }
 
 export const RecipesScreen: React.FC<RecipesScreenProps> = ({
@@ -37,6 +42,8 @@ export const RecipesScreen: React.FC<RecipesScreenProps> = ({
   onAddMissingToShoppingList,
   onRefreshRecipes,
   isGenerating,
+  videoStates,
+  onFindVideos,
 }) => {
   const lang = (settings?.language || 'en') as LanguageType;
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
@@ -165,6 +172,8 @@ export const RecipesScreen: React.FC<RecipesScreenProps> = ({
       <div className="space-y-4">
         {filteredRecipes.map((recipe, idx) => {
           const isAdded = addedRecipeIds.includes(recipe.id);
+          const videoState = videoStates[videoSearchKey(recipe, lang)];
+          const videosFresh = videoState?.status === 'ready' && (videoState.expiresAt || 0) > Date.now();
           const numStr = (idx + 1).toString().padStart(2, '0');
 
           // Cuisine tag: flag + localized name when the value maps to the
@@ -303,6 +312,29 @@ export const RecipesScreen: React.FC<RecipesScreenProps> = ({
                   </button>
                 </div>
               </div>
+
+              <section className="border-t border-slate-100 pt-4 space-y-3" aria-label={t('recipeVideosTitle', lang)}>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h4 className="flex items-center gap-2 text-sm font-bold text-pine"><PlayCircle className="w-4 h-4 text-cold-dark" />{t('recipeVideosTitle', lang)}</h4>
+                  <button type="button" onClick={() => onFindVideos(recipe, lang)} disabled={videoState?.status === 'loading'} className="rounded-xl bg-mint px-3 py-2 text-xs font-bold text-pine hover:bg-mint-deep disabled:opacity-50">
+                    {t('findCookingVideo', lang)}
+                  </button>
+                </div>
+                {videoState?.status === 'loading' && <p role="status" className="text-xs text-slate-500">{t('recipeVideosLoading', lang)}</p>}
+                {videoState?.status === 'not_configured' && <p role="status" className="text-xs text-slate-500">{t('recipeVideosUnavailable', lang)}</p>}
+                {videoState?.status === 'error' && <p role="status" className="text-xs text-slate-500">{t('recipeVideosError', lang)}</p>}
+                {videosFresh && videoState?.videos?.length === 0 && <p className="text-xs text-slate-500">{t('recipeVideosEmpty', lang)}</p>}
+                {videosFresh && videoState?.videos?.map((video) => (
+                  <a key={video.id} href={`https://www.youtube.com/watch?v=${encodeURIComponent(video.id)}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-slate-50 p-2.5 hover:border-cold/40 hover:bg-mint/40 transition-colors">
+                    <img src={video.thumbnail} alt="" loading="lazy" className="w-24 sm:w-28 aspect-video shrink-0 object-cover rounded-xl bg-slate-200" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-xs font-bold text-slate-800 line-clamp-2">{video.title}</span>
+                      <span className="block mt-1 text-[11px] text-slate-500 truncate">{video.channel}</span>
+                      <span className="inline-flex items-center gap-1 mt-1 text-[11px] font-bold text-cold-dark">{t('watchOnYoutube', lang)} <ExternalLink className="w-3 h-3" /></span>
+                    </span>
+                  </a>
+                ))}
+              </section>
             </div>
           );
         })}

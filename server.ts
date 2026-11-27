@@ -21,6 +21,7 @@ import health from './api/health.js';
 import liveToken from './api/live-token.js';
 import nearbyStores from './api/nearby-stores.js';
 import recipeVoiceBot from './api/recipe-voice-bot.js';
+import recipeVideos from './api/recipe-videos.js';
 import scanFridge from './api/scan-fridge.js';
 import trial from './api/trial.js';
 import tts from './api/tts.js';
@@ -44,6 +45,7 @@ const routes: Record<string, ApiHandler> = {
   '/api/nearby-stores': nearbyStores,
   '/api/ai-chat': aiChat,
   '/api/recipe-voice-bot': recipeVoiceBot,
+  '/api/recipe-videos': recipeVideos,
   '/api/tts': tts,
   '/api/trial': trial,
 };
