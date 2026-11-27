@@ -45,9 +45,9 @@ export function useRecipeVideos() {
     pending.current.add(key);
     update(key, { status: 'loading' });
     try {
-      const response = await apiFetch('/api/recipe-videos', {
+      const response = await apiFetch('/api/generate-recipes', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: recipe.name.trim(), cuisine: getCuisineMeta(recipe.cuisine)?.name || recipe.cuisine?.trim() || '', language }),
+        body: JSON.stringify({ action: 'recipe-videos', name: recipe.name.trim(), cuisine: getCuisineMeta(recipe.cuisine)?.name || recipe.cuisine?.trim() || '', language }),
       });
       const data = await response.json();
       if (!response.ok || !data.success || !Array.isArray(data.videos) || typeof data.expiresAt !== 'number') {

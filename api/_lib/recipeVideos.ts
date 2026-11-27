@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
-import { methodGuard, readBody, type ApiRequest, type ApiResponse } from './_lib/http.js';
-import { kvGet, kvSet } from './_lib/kv.js';
-import { rateLimit, requireSupportAccess } from './_lib/trial.js';
+import { methodGuard, readBody, type ApiRequest, type ApiResponse } from './http.js';
+import { kvGet, kvSet } from './kv.js';
+import { rateLimit, requireSupportAccess } from './trial.js';
 
 const TTL_SECONDS = 24 * 60 * 60;
 const terms: Record<string, string> = {

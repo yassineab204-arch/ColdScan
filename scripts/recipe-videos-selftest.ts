@@ -1,6 +1,6 @@
 /** Offline regression test: npx tsx scripts/recipe-videos-selftest.ts */
 import assert from 'node:assert/strict';
-import handler from '../api/recipe-videos.js';
+import handler from '../api/generate-recipes.js';
 import type { ApiRequest, ApiResponse } from '../api/_lib/http.js';
 
 process.env.TRIAL_SECRET = 'selftest-secret-0123456789abcdefghijklmno';
@@ -37,7 +37,7 @@ function response() {
   return { res, captured };
 }
 async function request(name: string, language = 'fr') {
-  const req: ApiRequest = { method: 'POST', body: { name, cuisine: 'Moroccan', language }, headers: { 'user-agent': `video-test-${suffix}` }, socket: { remoteAddress: '127.0.0.10' } };
+  const req: ApiRequest = { method: 'POST', body: { action: 'recipe-videos', name, cuisine: 'Moroccan', language }, headers: { 'user-agent': `video-test-${suffix}` }, socket: { remoteAddress: '127.0.0.10' } };
   const { res, captured } = response();
   await handler(req, res);
   return captured;
